@@ -219,7 +219,77 @@ function rooster_planner_activate() {
         (2, 'Bakery openen', '05:50:00', '12:00:00', '#F59E0B'),
         (2, 'Bakery tussendienst', '11:00:00', '19:00:00', '#EF4444')");
 
+    // Create frontend pages with shortcodes
+    rooster_planner_create_pages();
+
     add_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
+}
+
+/**
+ * Create frontend pages with shortcodes embedded
+ */
+function rooster_planner_create_pages() {
+    $pages = [
+        'medewerker-login' => [
+            'title' => 'Medewerker Login',
+            'content' => '[roosterplanner_login]'
+        ],
+        'medewerker-dashboard' => [
+            'title' => 'Mijn Dashboard',
+            'content' => '[roosterplanner_dashboard]'
+        ],
+        'medewerker-rooster' => [
+            'title' => 'Mijn Rooster',
+            'content' => '[roosterplanner_rooster]'
+        ],
+        'medewerker-beschikbaarheid' => [
+            'title' => 'Mijn Beschikbaarheid',
+            'content' => '[roosterplanner_beschikbaarheid]'
+        ],
+        'medewerker-ruilen' => [
+            'title' => 'Shifts Ruilen',
+            'content' => '[roosterplanner_ruilenen]'
+        ],
+        'medewerker-chat' => [
+            'title' => 'Team Chat',
+            'content' => '[roosterplanner_chat]'
+        ],
+        'medewerker-ziekmelden' => [
+            'title' => 'Ziekmelden',
+            'content' => '[roosterplanner_ziekmelden]'
+        ],
+        'medewerker-profiel' => [
+            'title' => 'Mijn Profiel',
+            'content' => '[roosterplanner_profielformulier]'
+        ]
+    ];
+    
+    $created_pages = [];
+    
+    foreach ($pages as $slug => $page_data) {
+        // Check if page already exists
+        $existing_page = get_page_by_path($slug);
+        
+        if (!$existing_page) {
+            $page_id = wp_insert_post([
+                'post_title' => $page_data['title'],
+                'post_content' => $page_data['content'],
+                'post_status' => 'publish',
+                'post_type' => 'page',
+                'post_name' => $slug,
+                'comment_status' => 'closed'
+            ]);
+            
+            if ($page_id) {
+                $created_pages[$slug] = $page_id;
+            }
+        }
+    }
+    
+    // Store created pages in option for reference
+    if (!empty($created_pages)) {
+        update_option('rooster_planner_pages', $created_pages);
+    }
 }
 
 // Initialize plugin
@@ -253,7 +323,46 @@ function rooster_planner_admin_assets($hook) {
     ]);
 }
 
-// Enqueue frontend assets
+// Add PWA manifest and service worker for frontend pages
+add_action('wp_head', 'rooster_planner_pwa_head');
+function rooster_planner_pwa_head() {
+    // Only add PWA tags on our plugin pages
+    if (!is_page()) return;
+    
+    $page_slug = get_post_field('post_name', get_the_ID());
+    $plugin_pages = ['medewerker-login', 'medewerker-dashboard', 'medewerker-rooster', 
+                     'medewerker-beschikbaarheid', 'medewerker-ruilen', 'medewerker-chat',
+                     'medewerker-ziekmelden', 'medewerker-profiel'];
+    
+    if (!in_array($page_slug, $plugin_pages)) return;
+    
+    echo '<link rel="manifest" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/manifest.json">' . "\n";
+    echo '<meta name="theme-color" content="#4F46E5">' . "\n";
+    echo '<meta name="apple-mobile-web-app-capable" content="yes">' . "\n";
+    echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' . "\n";
+    echo '<meta name="apple-mobile-web-app-title" content="RoosterApp">' . "\n";
+    echo '<link rel="apple-touch-icon" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/images/icon-192x192.png">' . "\n";
+}
+
+// Login redirect to medewerker-dashboard
+add_action('wp_login', 'rooster_planner_login_redirect', 10, 2);
+function rooster_planner_login_redirect($user_login, $user) {
+    // Check if user is an employee
+    global $wpdb;
+    $employee = $wpdb->get_row($wpdb->prepare(
+        "SELECT id FROM {$wpdb->prefix}rp_employees WHERE user_id = %d AND is_active = 1",
+        $user->ID
+    ));
+    
+    if ($employee) {
+        // Get dashboard page URL
+        $dashboard_page = get_page_by_path('medewerker-dashboard');
+        if ($dashboard_page) {
+            wp_redirect(get_permalink($dashboard_page->ID));
+            exit;
+        }
+    }
+}
 add_action('wp_enqueue_scripts', 'rooster_planner_frontend_assets');
 function rooster_planner_frontend_assets() {
     wp_enqueue_style('rooster-planner-css', ROOSTER_PLANNER_PLUGIN_URL . 'assets/css/frontend.css', [], ROOSTER_PLANNER_VERSION);
@@ -261,6 +370,8 @@ function rooster_planner_frontend_assets() {
     wp_localize_script('rooster-planner-js', 'rpAjax', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('rp_nonce'),
-        'isLoggedIn' => is_user_logged_in()
+        'isLoggedIn' => is_user_logged_in(),
+        'currentUserId' => get_current_user_id(),
+        'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL
     ]);
 }
