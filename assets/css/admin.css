@@ -1,0 +1,186 @@
+/* Rooster Planner Admin Styles */
+
+.rp-admin-wrap {
+    max-width: 1400px;
+    margin: 20px 0;
+}
+
+/* Dashboard Stats */
+.rp-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.rp-stat-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rp-stat-icon {
+    font-size: 2em;
+}
+
+.rp-stat-content h3 {
+    margin: 0;
+    font-size: 2em;
+    color: #4F46E5;
+}
+
+.rp-stat-content p {
+    margin: 5px 0 0;
+    color: #666;
+}
+
+/* Calendar */
+.rp-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    background: #e5e7eb;
+    border: 1px solid #e5e7eb;
+}
+
+.rp-day {
+    background: #fff;
+    min-height: 120px;
+    padding: 8px;
+    position: relative;
+}
+
+.rp-day.rp-today {
+    background: #dbeafe;
+}
+
+.rp-day-number {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.rp-schedule-item {
+    padding: 4px 8px;
+    margin: 2px 0;
+    border-radius: 3px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.rp-add-btn {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: #4F46E5;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.rp-day:hover .rp-add-btn {
+    opacity: 1;
+}
+
+/* Modal */
+.rp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+
+.rp-modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    min-width: 450px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Loading */
+.rp-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+}
+
+.rp-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #4F46E5;
+    border-radius: 50%;
+    animation: rp-spin 1s linear infinite;
+}
+
+@keyframes rp-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Availability Table */
+.rp-availability-table {
+    border-collapse: separate;
+    border-spacing: 1px;
+}
+
+.rp-availability-table th,
+.rp-availability-table td {
+    padding: 8px 4px;
+    text-align: center;
+    min-width: 35px;
+}
+
+.rp-available {
+    background: #d4edda;
+    color: #155724;
+    font-weight: bold;
+}
+
+.rp-unavailable {
+    background: #f8d7da;
+    color: #721c24;
+    font-weight: bold;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .rp-dashboard-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 782px) {
+    .rp-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .rp-modal-content {
+        min-width: auto;
+        width: 95%;
+        padding: 20px;
+    }
+}

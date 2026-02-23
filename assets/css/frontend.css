@@ -1,0 +1,199 @@
+/* Rooster Planner Frontend Styles */
+
+:root {
+    --rp-primary: #4F46E5;
+    --rp-primary-dark: #4338CA;
+    --rp-secondary: #10B981;
+    --rp-danger: #EF4444;
+    --rp-warning: #F59E0B;
+    --rp-bg: #f9fafb;
+    --rp-card-bg: #ffffff;
+    --rp-text: #1f2937;
+    --rp-text-muted: #6b7280;
+    --rp-border: #e5e7eb;
+    --rp-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --rp-radius: 12px;
+}
+
+/* Reset & Base */
+.rp-container * {
+    box-sizing: border-box;
+}
+
+.rp-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    color: var(--rp-text);
+    line-height: 1.6;
+}
+
+/* Buttons */
+.rp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rp-btn:hover {
+    transform: translateY(-1px);
+}
+
+.rp-btn-primary {
+    background: var(--rp-primary);
+    color: white;
+}
+
+.rp-btn-primary:hover {
+    background: var(--rp-primary-dark);
+}
+
+.rp-btn-secondary {
+    background: var(--rp-bg);
+    color: var(--rp-text);
+    border: 1px solid var(--rp-border);
+}
+
+.rp-btn-secondary:hover {
+    background: var(--rp-border);
+}
+
+.rp-btn-danger {
+    background: var(--rp-danger);
+    color: white;
+}
+
+.rp-btn-success {
+    background: var(--rp-secondary);
+    color: white;
+}
+
+/* Notification Bell */
+.rp-notification-bell {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: var(--rp-card-bg);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--rp-shadow);
+    z-index: 999;
+    transition: transform 0.2s;
+}
+
+.rp-notification-bell:hover {
+    transform: scale(1.1);
+}
+
+.rp-bell-icon {
+    font-size: 24px;
+}
+
+.rp-notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--rp-danger);
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rp-notification-panel {
+    position: fixed;
+    top: 140px;
+    right: 20px;
+    width: 350px;
+    max-height: 500px;
+    background: var(--rp-card-bg);
+    border-radius: var(--rp-radius);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    z-index: 998;
+    overflow-y: auto;
+}
+
+/* Loading States */
+.rp-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.rp-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--rp-border);
+    border-top-color: var(--rp-primary);
+    border-radius: 50%;
+    animation: rp-spin 1s linear infinite;
+}
+
+@keyframes rp-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .rp-notification-bell {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .rp-notification-panel {
+        top: auto;
+        bottom: 80px;
+        right: 20px;
+        left: 20px;
+        width: auto;
+    }
+    
+    .rp-btn {
+        padding: 14px 20px;
+        font-size: 16px;
+    }
+}
+
+/* Touch-friendly */
+@media (hover: none) and (pointer: coarse) {
+    .rp-btn {
+        min-height: 44px;
+    }
+    
+    .rp-day {
+        min-height: 80px;
+    }
+    
+    input, select, textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --rp-bg: #111827;
+        --rp-card-bg: #1f2937;
+        --rp-text: #f9fafb;
+        --rp-text-muted: #9ca3af;
+        --rp-border: #374151;
+    }
+}

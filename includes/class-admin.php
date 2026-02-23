@@ -1,0 +1,446 @@
+<?php
+namespace RoosterPlanner;
+
+class Admin {
+    
+    public function __construct() {
+        add_action('admin_menu', [$this, 'add_menu_pages']);
+        add_action('admin_init', [$this, 'handle_admin_actions']);
+    }
+    
+    public function add_menu_pages() {
+        add_menu_page(
+            'Rooster Planner',
+            'Rooster Planner',
+            'manage_options',
+            'rooster-planner',
+            [$this, 'render_dashboard'],
+            'dashicons-calendar-alt',
+            30
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Dashboard',
+            'Dashboard',
+            'manage_options',
+            'rooster-planner',
+            [$this, 'render_dashboard']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Locaties & Shifts',
+            'Locaties & Shifts',
+            'manage_options',
+            'rooster-planner-locations',
+            [$this, 'render_locations']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Medewerkers',
+            'Medewerkers',
+            'manage_options',
+            'rooster-planner-employees',
+            [$this, 'render_employees']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Roosters Plannen',
+            'Roosters Plannen',
+            'manage_options',
+            'rooster-planner-schedules',
+            [$this, 'render_schedules']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Beschikbaarheid',
+            'Beschikbaarheid',
+            'manage_options',
+            'rooster-planner-availability',
+            [$this, 'render_availability']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Ruilingen & Verlof',
+            'Ruilingen & Verlof',
+            'manage_options',
+            'rooster-planner-swaps',
+            [$this, 'render_swaps']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Chat & Berichten',
+            'Chat & Berichten',
+            'manage_options',
+            'rooster-planner-chat',
+            [$this, 'render_chat_admin']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Instellingen',
+            'Instellingen',
+            'manage_options',
+            'rooster-planner-settings',
+            [$this, 'render_settings']
+        );
+    }
+    
+    public function render_dashboard() {
+        global $wpdb;
+        
+        $total_employees = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}rp_employees WHERE is_active = 1");
+        $pending_swaps = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}rp_shift_swaps WHERE status = 'pending'");
+        $pending_timeoff = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}rp_timeoff WHERE status = 'pending'");
+        $today_schedules = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules WHERE work_date = %s",
+            current_time('Y-m-d')
+        ));
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/dashboard.php';
+    }
+    
+    public function render_locations() {
+        global $wpdb;
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        $shifts = $wpdb->get_results("SELECT s.*, l.name as location_name FROM {$wpdb->prefix}rp_shifts s 
+            LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id 
+            ORDER BY l.name, s.start_time");
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/locations.php';
+    }
+    
+    public function render_employees() {
+        global $wpdb;
+        
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name, u.user_email, u.user_login,
+            GROUP_CONCAT(DISTINCT l.name ORDER BY l.name SEPARATOR ', ') as locations
+            FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            LEFT JOIN {$wpdb->prefix}rp_employee_locations el ON e.id = el.employee_id
+            LEFT JOIN {$wpdb->prefix}rp_locations l ON el.location_id = l.id
+            GROUP BY e.id
+            ORDER BY u.display_name");
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        $wp_users = $wpdb->get_results("SELECT ID, display_name, user_email FROM {$wpdb->users} 
+            WHERE ID NOT IN (SELECT user_id FROM {$wpdb->prefix}rp_employees) 
+            ORDER BY display_name");
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/employees.php';
+    }
+    
+    public function render_schedules() {
+        global $wpdb;
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE e.is_active = 1 ORDER BY u.display_name");
+        $shifts = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_shifts WHERE is_active = 1 ORDER BY name");
+        
+        $current_location = isset($_GET['location']) ? intval($_GET['location']) : ($locations[0]->id ?? 1);
+        $current_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : current_time('Y-m');
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/schedules.php';
+    }
+    
+    public function render_availability() {
+        global $wpdb;
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE e.is_active = 1 ORDER BY u.display_name");
+        
+        $current_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m', strtotime('+1 month'));
+        $current_location = isset($_GET['location']) ? intval($_GET['location']) : ($locations[0]->id ?? 1);
+        
+        // Get availability for selected month and location
+        $start_date = $current_month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        $availability = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.*, u.display_name, s.name as shift_name
+            FROM {$wpdb->prefix}rp_availability a
+            LEFT JOIN {$wpdb->prefix}rp_employees e ON a.employee_id = e.id
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            LEFT JOIN {$wpdb->prefix}rp_shifts s ON a.shift_preference = s.id
+            WHERE a.work_date BETWEEN %s AND %s AND a.location_id = %d
+            ORDER BY a.work_date, u.display_name",
+            $start_date, $end_date, $current_location
+        ));
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/availability.php';
+    }
+    
+    public function render_swaps() {
+        global $wpdb;
+        
+        $pending_swaps = $wpdb->get_results("SELECT sw.*, 
+            u1.display_name as requester_name,
+            u2.display_name as requested_name,
+            s.work_date, sh.name as shift_name, sh.start_time, sh.end_time,
+            l.name as location_name
+            FROM {$wpdb->prefix}rp_shift_swaps sw
+            LEFT JOIN {$wpdb->prefix}rp_schedules s ON sw.schedule_id = s.id
+            LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+            LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+            LEFT JOIN {$wpdb->prefix}rp_employees e1 ON sw.requester_id = e1.id
+            LEFT JOIN {$wpdb->users} u1 ON e1.user_id = u1.ID
+            LEFT JOIN {$wpdb->prefix}rp_employees e2 ON sw.requested_employee_id = e2.id
+            LEFT JOIN {$wpdb->users} u2 ON e2.user_id = u2.ID
+            WHERE sw.status = 'pending'
+            ORDER BY sw.requested_at DESC");
+        
+        $pending_timeoff = $wpdb->get_results("SELECT t.*, u.display_name
+            FROM {$wpdb->prefix}rp_timeoff t
+            LEFT JOIN {$wpdb->prefix}rp_employees e ON t.employee_id = e.id
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE t.status = 'pending'
+            ORDER BY t.requested_at DESC");
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/swaps.php';
+    }
+    
+    public function render_chat_admin() {
+        global $wpdb;
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        
+        // Get recent messages
+        $messages = $wpdb->get_results("SELECT m.*, u.display_name as sender_name
+            FROM {$wpdb->prefix}rp_chat_messages m
+            LEFT JOIN {$wpdb->users} u ON m.sender_id = u.ID
+            ORDER BY m.created_at DESC
+            LIMIT 100");
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/chat.php';
+    }
+    
+    public function render_settings() {
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/settings.php';
+    }
+    
+    public function handle_admin_actions() {
+        if (!isset($_POST['rp_action']) || !current_user_can('manage_options')) return;
+        
+        global $wpdb;
+        
+        switch ($_POST['rp_action']) {
+            case 'add_location':
+                check_admin_referer('rp_admin_action');
+                $name = sanitize_text_field($_POST['location_name']);
+                $address = sanitize_textarea_field($_POST['location_address']);
+                $wpdb->insert($wpdb->prefix . 'rp_locations', ['name' => $name, 'address' => $address]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=added'));
+                exit;
+                
+            case 'edit_location':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['location_id']);
+                $name = sanitize_text_field($_POST['location_name']);
+                $address = sanitize_textarea_field($_POST['location_address']);
+                $wpdb->update($wpdb->prefix . 'rp_locations', ['name' => $name, 'address' => $address], ['id' => $id]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=updated'));
+                exit;
+                
+            case 'delete_location':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['location_id']);
+                $wpdb->delete($wpdb->prefix . 'rp_locations', ['id' => $id]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=deleted'));
+                exit;
+                
+            case 'add_shift':
+                check_admin_referer('rp_admin_action');
+                $wpdb->insert($wpdb->prefix . 'rp_shifts', [
+                    'location_id' => intval($_POST['shift_location']),
+                    'name' => sanitize_text_field($_POST['shift_name']),
+                    'start_time' => sanitize_text_field($_POST['start_time']),
+                    'end_time' => sanitize_text_field($_POST['end_time']),
+                    'color' => sanitize_hex_color($_POST['shift_color'])
+                ]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=shift_added'));
+                exit;
+                
+            case 'edit_shift':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['shift_id']);
+                $wpdb->update($wpdb->prefix . 'rp_shifts', [
+                    'location_id' => intval($_POST['shift_location']),
+                    'name' => sanitize_text_field($_POST['shift_name']),
+                    'start_time' => sanitize_text_field($_POST['start_time']),
+                    'end_time' => sanitize_text_field($_POST['end_time']),
+                    'color' => sanitize_hex_color($_POST['shift_color'])
+                ], ['id' => $id]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=shift_updated'));
+                exit;
+                
+            case 'delete_shift':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['shift_id']);
+                $wpdb->delete($wpdb->prefix . 'rp_shifts', ['id' => $id]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=shift_deleted'));
+                exit;
+                
+            case 'add_employee':
+                check_admin_referer('rp_admin_action');
+                $user_id = intval($_POST['user_id']);
+                $phone = sanitize_text_field($_POST['phone']);
+                $is_admin = isset($_POST['is_admin']) ? 1 : 0;
+                $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
+                
+                $wpdb->insert($wpdb->prefix . 'rp_employees', [
+                    'user_id' => $user_id,
+                    'phone' => $phone,
+                    'is_admin' => $is_admin
+                ]);
+                $employee_id = $wpdb->insert_id;
+                
+                foreach ($locations as $loc_id) {
+                    $wpdb->insert($wpdb->prefix . 'rp_employee_locations', [
+                        'employee_id' => $employee_id,
+                        'location_id' => $loc_id
+                    ]);
+                }
+                
+                wp_redirect(admin_url('admin.php?page=rooster-planner-employees&msg=added'));
+                exit;
+                
+            case 'edit_employee':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['employee_id']);
+                $phone = sanitize_text_field($_POST['phone']);
+                $is_admin = isset($_POST['is_admin']) ? 1 : 0;
+                $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
+                
+                $wpdb->update($wpdb->prefix . 'rp_employees', [
+                    'phone' => $phone,
+                    'is_admin' => $is_admin
+                ], ['id' => $id]);
+                
+                // Update locations
+                $wpdb->delete($wpdb->prefix . 'rp_employee_locations', ['employee_id' => $id]);
+                foreach ($locations as $loc_id) {
+                    $wpdb->insert($wpdb->prefix . 'rp_employee_locations', [
+                        'employee_id' => $id,
+                        'location_id' => $loc_id
+                    ]);
+                }
+                
+                wp_redirect(admin_url('admin.php?page=rooster-planner-employees&msg=updated'));
+                exit;
+                
+            case 'toggle_employee':
+                check_admin_referer('rp_admin_action');
+                $id = intval($_POST['employee_id']);
+                $current = $wpdb->get_var($wpdb->prepare("SELECT is_active FROM {$wpdb->prefix}rp_employees WHERE id = %d", $id));
+                $wpdb->update($wpdb->prefix . 'rp_employees', ['is_active' => !$current], ['id' => $id]);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-employees&msg=toggled'));
+                exit;
+                
+            case 'process_swap':
+                check_admin_referer('rp_admin_action');
+                $swap_id = intval($_POST['swap_id']);
+                $action = sanitize_text_field($_POST['swap_action']);
+                $notes = sanitize_textarea_field($_POST['admin_notes']);
+                
+                $status = ($action === 'approve') ? 'approved' : 'rejected';
+                $wpdb->update($wpdb->prefix . 'rp_shift_swaps', [
+                    'status' => $status,
+                    'admin_notes' => $notes,
+                    'responded_at' => current_time('mysql')
+                ], ['id' => $swap_id]);
+                
+                // If approved, update the schedule
+                if ($action === 'approve') {
+                    $swap = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}rp_shift_swaps WHERE id = %d", $swap_id));
+                    if ($swap && $swap->requested_employee_id) {
+                        $wpdb->update($wpdb->prefix . 'rp_schedules', [
+                            'employee_id' => $swap->requested_employee_id,
+                            'status' => 'swapped'
+                        ], ['id' => $swap->schedule_id]);
+                    }
+                }
+                
+                wp_redirect(admin_url('admin.php?page=rooster-planner-swaps&msg=swap_' . $status));
+                exit;
+                
+            case 'process_timeoff':
+                check_admin_referer('rp_admin_action');
+                $timeoff_id = intval($_POST['timeoff_id']);
+                $action = sanitize_text_field($_POST['timeoff_action']);
+                $notes = sanitize_textarea_field($_POST['admin_notes']);
+                
+                $status = ($action === 'approve') ? 'approved' : 'rejected';
+                $wpdb->update($wpdb->prefix . 'rp_timeoff', [
+                    'status' => $status,
+                    'admin_notes' => $notes,
+                    'responded_at' => current_time('mysql')
+                ], ['id' => $timeoff_id]);
+                
+                wp_redirect(admin_url('admin.php?page=rooster-planner-swaps&msg=timeoff_' . $status));
+                exit;
+                
+            case 'duplicate_schedule':
+                check_admin_referer('rp_admin_action');
+                $source_month = sanitize_text_field($_POST['source_month']);
+                $target_month = sanitize_text_field($_POST['target_month']);
+                $location_id = intval($_POST['location_id']);
+                
+                $this->duplicate_month_schedule($source_month, $target_month, $location_id);
+                
+                wp_redirect(admin_url('admin.php?page=rooster-planner-schedules&location=' . $location_id . '&month=' . $target_month . '&msg=duplicated'));
+                exit;
+        }
+    }
+    
+    private function duplicate_month_schedule($source_month, $target_month, $location_id) {
+        global $wpdb;
+        
+        $source_start = $source_month . '-01';
+        $source_end = date('Y-m-t', strtotime($source_start));
+        $target_start = $target_month . '-01';
+        
+        // Get all schedules from source month
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_schedules 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s",
+            $location_id, $source_start, $source_end
+        ));
+        
+        $day_offset = strtotime($target_start) - strtotime($source_start);
+        
+        foreach ($schedules as $schedule) {
+            $new_date = date('Y-m-d', strtotime($schedule->work_date) + $day_offset);
+            
+            // Check if schedule already exists
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}rp_schedules 
+                WHERE employee_id = %d AND work_date = %s AND location_id = %d",
+                $schedule->employee_id, $new_date, $location_id
+            ));
+            
+            if (!$exists) {
+                $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+                    'employee_id' => $schedule->employee_id,
+                    'location_id' => $schedule->location_id,
+                    'shift_id' => $schedule->shift_id,
+                    'work_date' => $new_date,
+                    'start_time' => $schedule->start_time,
+                    'end_time' => $schedule->end_time,
+                    'status' => 'scheduled',
+                    'created_by' => get_current_user_id()
+                ]);
+            }
+        }
+    }
+}
