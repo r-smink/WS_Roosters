@@ -1,0 +1,7 @@
+voornaam,achternaam,email,telefoon,locaties,is_admin
+Jan,Jansen,jan.jansen@voorbeeld.nl,0612345678,"Serva,Isselt",nee
+Marie,de Vries,marie.devries@voorbeeld.nl,0612345679,"Serva",nee
+Piet,Pietersen,piet.pietersen@voorbeeld.nl,0612345680,"Isselt",ja
+Lisa,Bakker,lisa.bakker@voorbeeld.nl,0612345681,"Serva",nee
+Tom,van Dijk,tom.vandijk@voorbeeld.nl,0612345682,"Serva,Isselt",nee
+Sophie,Jansma,sophie.jansma@voorbeeld.nl,0612345683,"Isselt",nee

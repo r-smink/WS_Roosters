@@ -12,6 +12,15 @@ class Ajax {
         add_action('wp_ajax_rp_bulk_schedule', [$this, 'bulk_schedule']);
         add_action('wp_ajax_rp_apply_fixed_schedule', [$this, 'apply_fixed_schedule']);
         
+        // Import AJAX handlers
+        add_action('wp_ajax_rp_import_demo_data', [$this, 'import_demo_data']);
+        add_action('wp_ajax_rp_import_employees_csv', [$this, 'import_employees_csv']);
+        add_action('wp_ajax_rp_import_shifts_csv', [$this, 'import_shifts_csv']);
+        
+        // Bulk update AJAX handlers
+        add_action('wp_ajax_rp_bulk_update_employees', [$this, 'bulk_update_employees']);
+        add_action('wp_ajax_rp_bulk_update_shifts', [$this, 'bulk_update_shifts']);
+        
         // Frontend AJAX handlers
         add_action('wp_ajax_rp_submit_availability', [$this, 'submit_availability']);
         add_action('wp_ajax_rp_request_swap', [$this, 'request_swap']);
@@ -639,5 +648,168 @@ class Ajax {
         foreach ($admins as $admin) {
             $this->create_notification($admin->user_id, 'admin_notice', $title, $message);
         }
+    }
+    
+    /**
+     * Import demo data (locations and shifts)
+     */
+    public function import_demo_data() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $result = rooster_planner_import_demo_data();
+        
+        if ($result['success']) {
+            wp_send_json_success(['message' => $result['message']]);
+        } else {
+            wp_send_json_error($result['message']);
+        }
+    }
+    
+    /**
+     * Import employees from CSV
+     */
+    public function import_employees_csv() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        if (empty($_FILES['csv_file'])) {
+            wp_send_json_error('Geen bestand geüpload');
+        }
+        
+        $file = $_FILES['csv_file'];
+        
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error('Upload fout: ' . $file['error']);
+        }
+        
+        // Check file extension
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        if (!in_array(strtolower($ext), ['csv', 'txt'])) {
+            wp_send_json_error('Alleen CSV bestanden zijn toegestaan');
+        }
+        
+        $csv_data = file_get_contents($file['tmp_name']);
+        
+        if (empty($csv_data)) {
+            wp_send_json_error('Bestand is leeg');
+        }
+        
+        $result = rooster_planner_import_employees_csv($csv_data);
+        
+        wp_send_json_success([
+            'imported' => $result['imported'],
+            'existing' => $result['existing'],
+            'errors' => $result['errors'],
+            'message' => sprintf(
+                '%d medewerkers geïmporteerd, %d bestonden al, %d fouten',
+                $result['imported'],
+                $result['existing'],
+                count($result['errors'])
+            )
+        ]);
+    }
+    
+    /**
+     * Import shifts from CSV
+     */
+    public function import_shifts_csv() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        if (empty($_FILES['csv_file'])) {
+            wp_send_json_error('Geen bestand geüpload');
+        }
+        
+        $file = $_FILES['csv_file'];
+        
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            wp_send_json_error('Upload fout: ' . $file['error']);
+        }
+        
+        // Check file extension
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        if (!in_array(strtolower($ext), ['csv', 'txt'])) {
+            wp_send_json_error('Alleen CSV bestanden zijn toegestaan');
+        }
+        
+        $csv_data = file_get_contents($file['tmp_name']);
+        
+        if (empty($csv_data)) {
+            wp_send_json_error('Bestand is leeg');
+        }
+        
+        $result = rooster_planner_import_shifts_csv($csv_data);
+        
+        wp_send_json_success([
+            'imported' => $result['imported'],
+            'existing' => $result['existing'],
+            'errors' => $result['errors'],
+            'message' => sprintf(
+                '%d shifts geïmporteerd, %d bestonden al, %d fouten',
+                $result['imported'],
+                $result['existing'],
+                count($result['errors'])
+            )
+        ]);
+    }
+    
+    /**
+     * Bulk update employees
+     */
+    public function bulk_update_employees() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $updates = !empty($_POST['updates']) ? json_decode(stripslashes($_POST['updates']), true) : [];
+        
+        if (empty($updates)) {
+            wp_send_json_error('Geen updates ontvangen');
+        }
+        
+        $result = rooster_planner_bulk_update_employees($updates);
+        
+        wp_send_json_success([
+            'updated' => $result['updated'],
+            'errors' => $result['errors'],
+            'message' => sprintf('%d medewerkers bijgewerkt', $result['updated'])
+        ]);
+    }
+    
+    /**
+     * Bulk update shifts
+     */
+    public function bulk_update_shifts() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $updates = !empty($_POST['updates']) ? json_decode(stripslashes($_POST['updates']), true) : [];
+        
+        if (empty($updates)) {
+            wp_send_json_error('Geen updates ontvangen');
+        }
+        
+        $result = rooster_planner_bulk_update_shifts($updates);
+        
+        wp_send_json_success([
+            'updated' => $result['updated'],
+            'errors' => $result['errors'],
+            'message' => sprintf('%d shifts bijgewerkt', $result['updated'])
+        ]);
     }
 }

@@ -68,9 +68,18 @@
     
     <div class="rp-section">
         <h2>Shifts</h2>
-        <table class="wp-list-table widefat fixed striped">
+        
+        <!-- Bulk Edit Toolbar -->
+        <div class="rp-bulk-actions">
+            <label><input type="checkbox" id="select-all-shifts"> Alles selecteren</label>
+            <button type="button" class="button" id="bulk-edit-shifts-btn" disabled>Bulk Bewerken</button>
+            <span id="bulk-shifts-count" style="margin-left:10px;color:#666;"></span>
+        </div>
+        
+        <table class="wp-list-table widefat fixed striped" id="shifts-table">
             <thead>
                 <tr>
+                    <th class="column-cb"><input type="checkbox" id="cb-select-all-shifts"></th>
                     <th>Locatie</th>
                     <th>Naam</th>
                     <th>Starttijd</th>
@@ -81,7 +90,8 @@
             </thead>
             <tbody>
                 <?php foreach ($shifts as $shift): ?>
-                <tr>
+                <tr data-shift-id="<?php echo $shift->id; ?>">
+                    <td><input type="checkbox" class="shift-checkbox" value="<?php echo $shift->id; ?>"></td>
                     <td><?php echo esc_html($shift->location_name); ?></td>
                     <td><?php echo esc_html($shift->name); ?></td>
                     <td><?php echo substr($shift->start_time, 0, 5); ?></td>
@@ -197,6 +207,43 @@
     </form>
 </div>
 
+<!-- Bulk Edit Shifts Modal -->
+<div id="bulk-edit-shifts-modal" style="display:none;">
+    <div class="modal-content">
+        <h3>Bulk Bewerken - Shifts</h3>
+        <p><span id="bulk-edit-count"></span> shifts geselecteerd</p>
+        
+        <table class="form-table">
+            <tr>
+                <th><label for="bulk_edit_start_time">Nieuwe starttijd</label></th>
+                <td>
+                    <input type="time" id="bulk_edit_start_time">
+                    <label><input type="checkbox" id="apply_start_time"> Toepassen</label>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="bulk_edit_end_time">Nieuwe eindtijd</label></th>
+                <td>
+                    <input type="time" id="bulk_edit_end_time">
+                    <label><input type="checkbox" id="apply_end_time"> Toepassen</label>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="bulk_edit_color">Nieuwe kleur</label></th>
+                <td>
+                    <input type="color" id="bulk_edit_color" value="#4F46E5">
+                    <label><input type="checkbox" id="apply_color"> Toepassen</label>
+                </td>
+            </tr>
+        </table>
+        
+        <p class="submit">
+            <button type="button" class="button button-primary" id="save-bulk-shifts">Opslaan</button>
+            <button type="button" class="button" onclick="document.getElementById('bulk-edit-shifts-modal').style.display='none'">Annuleren</button>
+        </p>
+    </div>
+</div>
+
 <script>
 function editLocation(id, name, address) {
     document.getElementById('edit_location_id').value = id;
@@ -218,6 +265,89 @@ function editShift(id, locationId, name, startTime, endTime, color) {
 function closeModal(id) {
     document.getElementById(id).style.display = 'none';
 }
+
+// Bulk Edit Functionality for Shifts
+jQuery(document).ready(function($) {
+    // Select all checkbox
+    $('#select-all-shifts, #cb-select-all-shifts').on('change', function() {
+        var checked = $(this).is(':checked');
+        $('.shift-checkbox').prop('checked', checked);
+        updateBulkShiftButton();
+    });
+    
+    // Individual checkboxes
+    $('.shift-checkbox').on('change', function() {
+        updateBulkShiftButton();
+    });
+    
+    // Update bulk button state
+    function updateBulkShiftButton() {
+        var selected = $('.shift-checkbox:checked').length;
+        $('#bulk-edit-shifts-btn').prop('disabled', selected === 0);
+        $('#bulk-shifts-count').text(selected > 0 ? selected + ' geselecteerd' : '');
+    }
+    
+    // Open bulk edit modal
+    $('#bulk-edit-shifts-btn').on('click', function() {
+        var selected = $('.shift-checkbox:checked').length;
+        $('#bulk-edit-count').text(selected);
+        document.getElementById('bulk-edit-shifts-modal').style.display = 'block';
+    });
+    
+    // Save bulk edits
+    $('#save-bulk-shifts').on('click', function() {
+        var selectedIds = [];
+        $('.shift-checkbox:checked').each(function() {
+            selectedIds.push($(this).val());
+        });
+        
+        if (selectedIds.length === 0) return;
+        
+        // Build updates object
+        var updates = {};
+        selectedIds.forEach(function(id) {
+            updates[id] = {};
+            
+            if ($('#apply_start_time').is(':checked') && $('#bulk_edit_start_time').val()) {
+                updates[id].start_time = $('#bulk_edit_start_time').val() + ':00';
+            }
+            if ($('#apply_end_time').is(':checked') && $('#bulk_edit_end_time').val()) {
+                updates[id].end_time = $('#bulk_edit_end_time').val() + ':00';
+            }
+            if ($('#apply_color').is(':checked')) {
+                updates[id].color = $('#bulk_edit_color').val();
+            }
+        });
+        
+        if (Object.keys(updates[selectedIds[0]]).length === 0) {
+            alert('Selecteer minstens één veld om bij te werken');
+            return;
+        }
+        
+        // Send AJAX request
+        $.ajax({
+            url: rpAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rp_bulk_update_shifts',
+                nonce: rpAjax.nonce,
+                updates: JSON.stringify(updates)
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    document.getElementById('bulk-edit-shifts-modal').style.display = 'none';
+                    location.reload();
+                } else {
+                    alert('Fout: ' + response.data);
+                }
+            },
+            error: function() {
+                alert('Er is een fout opgetreden');
+            }
+        });
+    });
+});
 </script>
 
 <style>
@@ -270,5 +400,37 @@ function closeModal(id) {
     display: block;
     margin-bottom: 5px;
     font-weight: 500;
+}
+.rp-bulk-actions {
+    background: #f6f7f7;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.column-cb {
+    width: 30px;
+    text-align: center;
+}
+#bulk-edit-shifts-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 1001;
+    min-width: 500px;
+}
+#bulk-edit-shifts-modal .modal-content h3 {
+    margin-top: 0;
+}
+#bulk-edit-shifts-modal label {
+    display: inline;
+    margin-left: 5px;
 }
 </style>

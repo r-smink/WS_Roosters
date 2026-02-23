@@ -16,9 +16,25 @@
     
     <div class="rp-section">
         <h2>Medewerkers</h2>
-        <table class="wp-list-table widefat fixed striped">
+        
+        <!-- Bulk Actions Toolbar -->
+        <div class="rp-bulk-actions">
+            <label><input type="checkbox" id="select-all-employees"> Alles selecteren</label>
+            <select id="bulk-action-select">
+                <option value="">-- Bulk actie --</option>
+                <option value="activate">Activeren</option>
+                <option value="deactivate">Deactiveren</option>
+                <option value="make_admin">Admin maken</option>
+                <option value="remove_admin">Admin verwijderen</option>
+            </select>
+            <button type="button" class="button" id="apply-bulk-action" disabled>Toepassen</button>
+            <span id="bulk-selected-count" style="margin-left:10px;color:#666;"></span>
+        </div>
+        
+        <table class="wp-list-table widefat fixed striped" id="employees-table">
             <thead>
                 <tr>
+                    <th class="column-cb"><input type="checkbox" id="cb-select-all-1"></th>
                     <th>Naam</th>
                     <th>Email</th>
                     <th>Telefoon</th>
@@ -30,7 +46,8 @@
             </thead>
             <tbody>
                 <?php foreach ($employees as $employee): ?>
-                <tr class="<?php echo $employee->is_active ? '' : 'rp-inactive'; ?>">
+                <tr class="<?php echo $employee->is_active ? '' : 'rp-inactive'; ?>" data-employee-id="<?php echo $employee->id; ?>">
+                    <td><input type="checkbox" class="employee-checkbox" value="<?php echo $employee->id; ?>"></td>
                     <td><?php echo esc_html($employee->display_name); ?></td>
                     <td><?php echo esc_html($employee->user_email); ?></td>
                     <td><?php echo esc_html($employee->phone); ?></td>
@@ -148,6 +165,82 @@ function editEmployee(id, phone, isAdmin) {
     document.getElementById('edit_is_admin').checked = isAdmin == 1;
     document.getElementById('edit-employee-modal').style.display = 'block';
 }
+
+// Bulk Edit Functionality
+jQuery(document).ready(function($) {
+    // Select all checkbox
+    $('#select-all-employees, #cb-select-all-1').on('change', function() {
+        var checked = $(this).is(':checked');
+        $('.employee-checkbox').prop('checked', checked);
+        updateBulkButton();
+    });
+    
+    // Individual checkboxes
+    $('.employee-checkbox').on('change', function() {
+        updateBulkButton();
+    });
+    
+    // Update bulk button state
+    function updateBulkButton() {
+        var selected = $('.employee-checkbox:checked').length;
+        $('#apply-bulk-action').prop('disabled', selected === 0);
+        $('#bulk-selected-count').text(selected > 0 ? selected + ' geselecteerd' : '');
+    }
+    
+    // Apply bulk action
+    $('#apply-bulk-action').on('click', function() {
+        var action = $('#bulk-action-select').val();
+        if (!action) {
+            alert('Selecteer een bulk actie');
+            return;
+        }
+        
+        var selectedIds = [];
+        $('.employee-checkbox:checked').each(function() {
+            selectedIds.push($(this).val());
+        });
+        
+        if (selectedIds.length === 0) {
+            alert('Selecteer minstens één medewerker');
+            return;
+        }
+        
+        var confirmMessage = 'Weet je zeker dat je deze actie wilt toepassen op ' + selectedIds.length + ' medewerker(s)?';
+        if (!confirm(confirmMessage)) return;
+        
+        // Build updates object
+        var updates = {};
+        selectedIds.forEach(function(id) {
+            updates[id] = {};
+            if (action === 'activate') updates[id].is_active = 1;
+            if (action === 'deactivate') updates[id].is_active = 0;
+            if (action === 'make_admin') updates[id].is_admin = 1;
+            if (action === 'remove_admin') updates[id].is_admin = 0;
+        });
+        
+        // Send AJAX request
+        $.ajax({
+            url: rpAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rp_bulk_update_employees',
+                nonce: rpAjax.nonce,
+                updates: JSON.stringify(updates)
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.data.message);
+                    location.reload();
+                } else {
+                    alert('Fout: ' + response.data);
+                }
+            },
+            error: function() {
+                alert('Er is een fout opgetreden');
+            }
+        });
+    });
+});
 </script>
 
 <style>
@@ -177,5 +270,21 @@ function editEmployee(id, phone, isAdmin) {
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     z-index: 1000;
     min-width: 500px;
+}
+.rp-bulk-actions {
+    background: #f6f7f7;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.rp-bulk-actions select {
+    min-width: 150px;
+}
+.column-cb {
+    width: 30px;
+    text-align: center;
 }
 </style>

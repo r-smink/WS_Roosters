@@ -1,0 +1,9 @@
+locatie,naam,start_tijd,eind_tijd,kleur
+Serva,Kassa openen,05:50,12:00,#4F46E5
+Serva,Tussen dienst,10:00,16:00,#10B981
+Serva,Bakery openen,05:50,12:00,#F59E0B
+Serva,Bakery tussendienst,11:00,19:00,#EF4444
+Isselt,Kassa openen,05:50,12:00,#4F46E5
+Isselt,Tussen dienst,10:00,16:00,#10B981
+Isselt,Bakery openen,05:50,12:00,#F59E0B
+Isselt,Bakery tussendienst,11:00,19:00,#EF4444

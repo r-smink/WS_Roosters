@@ -2,8 +2,8 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.0.0
- * Author: RoosterPlanner
+ * Version: 1.2.0
+ * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
  */
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.0.0');
+define('ROOSTER_PLANNER_VERSION', '1.2.0');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -203,26 +203,11 @@ function rooster_planner_activate() {
     dbDelta($sql_notifications);
     dbDelta($sql_fixed_schedules);
 
-    // Insert default locations
-    $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}rp_locations (id, name) VALUES 
-        (1, 'Serva'),
-        (2, 'Isselt')");
-
-    // Insert default shifts
-    $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}rp_shifts (location_id, name, start_time, end_time, color) VALUES
-        (1, 'Kassa openen', '05:50:00', '12:00:00', '#4F46E5'),
-        (1, 'Tussen dienst', '10:00:00', '16:00:00', '#10B981'),
-        (1, 'Bakery openen', '05:50:00', '12:00:00', '#F59E0B'),
-        (1, 'Bakery tussendienst', '11:00:00', '19:00:00', '#EF4444'),
-        (2, 'Kassa openen', '05:50:00', '12:00:00', '#4F46E5'),
-        (2, 'Tussen dienst', '10:00:00', '16:00:00', '#10B981'),
-        (2, 'Bakery openen', '05:50:00', '12:00:00', '#F59E0B'),
-        (2, 'Bakery tussendienst', '11:00:00', '19:00:00', '#EF4444')");
-
-    // Create frontend pages with shortcodes
+    // Create frontend pages with shortcodes (no demo data)
     rooster_planner_create_pages();
 
     add_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
+    add_option('rooster_planner_demo_data_imported', false);
 }
 
 /**
@@ -374,4 +359,370 @@ function rooster_planner_frontend_assets() {
         'currentUserId' => get_current_user_id(),
         'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL
     ]);
+}
+
+/**
+ * Import Demo Data (Locations and Shifts)
+ * Called via AJAX from admin
+ */
+function rooster_planner_import_demo_data() {
+    global $wpdb;
+    
+    // Check if already imported
+    if (get_option('rooster_planner_demo_data_imported')) {
+        return ['success' => false, 'message' => 'Demo data is al geïmporteerd'];
+    }
+    
+    // Insert default locations
+    $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}rp_locations (id, name) VALUES 
+        (1, 'Serva'),
+        (2, 'Isselt')");
+    
+    // Insert default shifts
+    $wpdb->query("INSERT IGNORE INTO {$wpdb->prefix}rp_shifts (location_id, name, start_time, end_time, color) VALUES
+        (1, 'Kassa openen', '05:50:00', '12:00:00', '#4F46E5'),
+        (1, 'Tussen dienst', '10:00:00', '16:00:00', '#10B981'),
+        (1, 'Bakery openen', '05:50:00', '12:00:00', '#F59E0B'),
+        (1, 'Bakery tussendienst', '11:00:00', '19:00:00', '#EF4444'),
+        (2, 'Kassa openen', '05:50:00', '12:00:00', '#4F46E5'),
+        (2, 'Tussen dienst', '10:00:00', '16:00:00', '#10B981'),
+        (2, 'Bakery openen', '05:50:00', '12:00:00', '#F59E0B'),
+        (2, 'Bakery tussendienst', '11:00:00', '19:00:00', '#EF4444')");
+    
+    update_option('rooster_planner_demo_data_imported', true);
+    
+    return ['success' => true, 'message' => 'Demo data succesvol geïmporteerd'];
+}
+
+/**
+ * Import Employees from CSV/Excel
+ * Expected columns: voornaam, achternaam, email, telefoon, locaties, is_admin
+ * locaties: comma-separated location names
+ */
+function rooster_planner_import_employees_csv($csv_data) {
+    global $wpdb;
+    $results = ['imported' => 0, 'errors' => [], 'existing' => 0];
+    
+    $lines = explode("\n", $csv_data);
+    $headers = str_getcsv(array_shift($lines));
+    
+    foreach ($lines as $line_num => $line) {
+        if (empty(trim($line))) continue;
+        
+        $data = str_getcsv($line);
+        if (count($data) < 4) continue;
+        
+        $row = array_combine($headers, $data);
+        
+        // Check required fields
+        if (empty($row['email']) || empty($row['voornaam']) || empty($row['achternaam'])) {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": Ontbrekende verplichte velden";
+            continue;
+        }
+        
+        // Check if user already exists
+        $existing_user = get_user_by('email', $row['email']);
+        if ($existing_user) {
+            $results['existing']++;
+            continue;
+        }
+        
+        // Create WordPress user
+        $username = sanitize_user($row['voornaam'] . '.' . $row['achternaam']);
+        $counter = 1;
+        $original_username = $username;
+        while (username_exists($username)) {
+            $username = $original_username . $counter;
+            $counter++;
+        }
+        
+        $password = wp_generate_password(12, false);
+        
+        $user_id = wp_insert_user([
+            'user_login' => $username,
+            'user_pass' => $password,
+            'user_email' => sanitize_email($row['email']),
+            'first_name' => sanitize_text_field($row['voornaam']),
+            'last_name' => sanitize_text_field($row['achternaam']),
+            'display_name' => sanitize_text_field($row['voornaam'] . ' ' . $row['achternaam']),
+            'role' => 'subscriber'
+        ]);
+        
+        if (is_wp_error($user_id)) {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": " . $user_id->get_error_message();
+            continue;
+        }
+        
+        // Create employee record
+        $phone = !empty($row['telefoon']) ? sanitize_text_field($row['telefoon']) : '';
+        $is_admin = !empty($row['is_admin']) && in_array(strtolower($row['is_admin']), ['ja', 'yes', '1', 'true']) ? 1 : 0;
+        
+        $wpdb->insert(
+            $wpdb->prefix . 'rp_employees',
+            [
+                'user_id' => $user_id,
+                'phone' => $phone,
+                'is_admin' => $is_admin,
+                'is_active' => 1
+            ],
+            ['%d', '%s', '%d', '%d']
+        );
+        
+        $employee_id = $wpdb->insert_id;
+        
+        // Assign locations
+        if (!empty($row['locaties']) && $employee_id) {
+            $location_names = array_map('trim', explode(',', $row['locaties']));
+            foreach ($location_names as $loc_name) {
+                $location = $wpdb->get_row($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}rp_locations WHERE name = %s",
+                    $loc_name
+                ));
+                
+                if ($location) {
+                    $wpdb->insert(
+                        $wpdb->prefix . 'rp_employee_locations',
+                        [
+                            'employee_id' => $employee_id,
+                            'location_id' => $location->id
+                        ],
+                        ['%d', '%d']
+                    );
+                }
+            }
+        }
+        
+        // Send welcome email with credentials
+        $to = $row['email'];
+        $subject = 'Welkom bij RoosterPlanner Pro';
+        $message = "Hallo " . $row['voornaam'] . ",\n\n";
+        $message .= "Er is een account voor je aangemaakt in RoosterPlanner Pro.\n\n";
+        $message .= "Je inloggegevens:\n";
+        $message .= "Gebruikersnaam: " . $username . "\n";
+        $message .= "Wachtwoord: " . $password . "\n\n";
+        $message .= "Log in op: " . get_permalink(get_page_by_path('medewerker-login')) . "\n\n";
+        $message .= "Verander je wachtwoord na de eerste keer inloggen voor de veiligheid.\n\n";
+        $message .= "Met vriendelijke groet,\n";
+        $message .= get_bloginfo('name');
+        
+        wp_mail($to, $subject, $message);
+        
+        $results['imported']++;
+    }
+    
+    return $results;
+}
+
+/**
+ * Import Shifts from CSV/Excel
+ * Expected columns: locatie, naam, start_tijd, eind_tijd, kleur
+ */
+function rooster_planner_import_shifts_csv($csv_data) {
+    global $wpdb;
+    $results = ['imported' => 0, 'errors' => [], 'existing' => 0];
+    
+    $lines = explode("\n", $csv_data);
+    $headers = str_getcsv(array_shift($lines));
+    
+    foreach ($lines as $line_num => $line) {
+        if (empty(trim($line))) continue;
+        
+        $data = str_getcsv($line);
+        if (count($data) < 4) continue;
+        
+        $row = array_combine($headers, $data);
+        
+        // Check required fields
+        if (empty($row['locatie']) || empty($row['naam']) || empty($row['start_tijd']) || empty($row['eind_tijd'])) {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": Ontbrekende verplichte velden";
+            continue;
+        }
+        
+        // Get location ID
+        $location = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_locations WHERE name = %s",
+            trim($row['locatie'])
+        ));
+        
+        if (!$location) {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": Locatie '" . $row['locatie'] . "' niet gevonden";
+            continue;
+        }
+        
+        // Check if shift already exists for this location
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}rp_shifts 
+            WHERE location_id = %d AND name = %s AND start_time = %s AND end_time = %s",
+            $location->id,
+            trim($row['naam']),
+            trim($row['start_tijd']),
+            trim($row['eind_tijd'])
+        ));
+        
+        if ($existing) {
+            $results['existing']++;
+            continue;
+        }
+        
+        // Validate time format
+        $start_time = trim($row['start_tijd']);
+        $end_time = trim($row['eind_tijd']);
+        
+        if (!preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $start_time) || !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $end_time)) {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": Ongeldig tijdformaat (gebruik HH:MM of HH:MM:SS)";
+            continue;
+        }
+        
+        // Add seconds if not present
+        if (strlen($start_time) == 5) $start_time .= ':00';
+        if (strlen($end_time) == 5) $end_time .= ':00';
+        
+        // Default colors based on shift name
+        $color = !empty($row['kleur']) ? sanitize_hex_color($row['kleur']) : rooster_planner_get_default_color($row['naam']);
+        
+        $wpdb->insert(
+            $wpdb->prefix . 'rp_shifts',
+            [
+                'location_id' => $location->id,
+                'name' => sanitize_text_field(trim($row['naam'])),
+                'start_time' => $start_time,
+                'end_time' => $end_time,
+                'color' => $color,
+                'is_active' => 1
+            ],
+            ['%d', '%s', '%s', '%s', '%s', '%d']
+        );
+        
+        if ($wpdb->insert_id) {
+            $results['imported']++;
+        } else {
+            $results['errors'][] = "Regel " . ($line_num + 2) . ": Database fout bij invoegen";
+        }
+    }
+    
+    return $results;
+}
+
+/**
+ * Get default color for shift type
+ */
+function rooster_planner_get_default_color($shift_name) {
+    $name_lower = strtolower($shift_name);
+    
+    if (strpos($name_lower, 'kassa') !== false) {
+        return '#4F46E5'; // Indigo
+    } elseif (strpos($name_lower, 'bakery') !== false) {
+        return '#F59E0B'; // Amber
+    } elseif (strpos($name_lower, 'tussen') !== false || strpos($name_lower, 'tussendienst') !== false) {
+        return '#10B981'; // Emerald
+    } elseif (strpos($name_lower, 'sluit') !== false || strpos($name_lower, 'afsluit') !== false) {
+        return '#EF4444'; // Red
+    } else {
+        return '#4F46E5'; // Default indigo
+    }
+}
+
+/**
+ * Bulk update employees
+ */
+function rooster_planner_bulk_update_employees($updates) {
+    global $wpdb;
+    $results = ['updated' => 0, 'errors' => []];
+    
+    foreach ($updates as $employee_id => $data) {
+        $employee_id = intval($employee_id);
+        if (!$employee_id) continue;
+        
+        $set = [];
+        $formats = [];
+        $values = [];
+        
+        if (isset($data['is_active'])) {
+            $set[] = 'is_active = %d';
+            $formats[] = '%d';
+            $values[] = intval($data['is_active']);
+        }
+        
+        if (isset($data['is_admin'])) {
+            $set[] = 'is_admin = %d';
+            $formats[] = '%d';
+            $values[] = intval($data['is_admin']);
+        }
+        
+        if (isset($data['phone'])) {
+            $set[] = 'phone = %s';
+            $formats[] = '%s';
+            $values[] = sanitize_text_field($data['phone']);
+        }
+        
+        if (empty($set)) continue;
+        
+        $values[] = $employee_id;
+        
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->prefix}rp_employees SET " . implode(', ', $set) . " WHERE id = %d",
+            $values
+        ));
+        
+        if ($result !== false) {
+            $results['updated']++;
+        } else {
+            $results['errors'][] = "Fout bij updaten medewerker ID " . $employee_id;
+        }
+    }
+    
+    return $results;
+}
+
+/**
+ * Bulk update shifts
+ */
+function rooster_planner_bulk_update_shifts($updates) {
+    global $wpdb;
+    $results = ['updated' => 0, 'errors' => []];
+    
+    foreach ($updates as $shift_id => $data) {
+        $shift_id = intval($shift_id);
+        if (!$shift_id) continue;
+        
+        $set = [];
+        $values = [];
+        
+        if (isset($data['start_time'])) {
+            $set[] = 'start_time = %s';
+            $values[] = sanitize_text_field($data['start_time']);
+        }
+        
+        if (isset($data['end_time'])) {
+            $set[] = 'end_time = %s';
+            $values[] = sanitize_text_field($data['end_time']);
+        }
+        
+        if (isset($data['color'])) {
+            $set[] = 'color = %s';
+            $values[] = sanitize_hex_color($data['color']);
+        }
+        
+        if (isset($data['is_active'])) {
+            $set[] = 'is_active = %d';
+            $values[] = intval($data['is_active']);
+        }
+        
+        if (empty($set)) continue;
+        
+        $values[] = $shift_id;
+        
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->prefix}rp_shifts SET " . implode(', ', $set) . " WHERE id = %d",
+            $values
+        ));
+        
+        if ($result !== false) {
+            $results['updated']++;
+        } else {
+            $results['errors'][] = "Fout bij updaten shift ID " . $shift_id;
+        }
+    }
+    
+    return $results;
 }

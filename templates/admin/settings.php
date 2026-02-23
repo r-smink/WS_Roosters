@@ -60,6 +60,71 @@
     </div>
     
     <div class="rp-section">
+        <h2>📥 Import & Data</h2>
+        
+        <!-- Demo Data Import -->
+        <div class="rp-import-block">
+            <h3>Demo Data Importeren</h3>
+            <p>Importeer standaard locaties (Serva, Isselt) en shifts.</p>
+            <?php 
+            $demo_imported = get_option('rooster_planner_demo_data_imported');
+            if ($demo_imported): 
+            ?>
+                <div class="notice notice-success inline">
+                    <p>✅ Demo data is al geïmporteerd</p>
+                </div>
+            <?php else: ?>
+                <button type="button" class="button button-primary" id="rp-import-demo-btn">
+                    📦 Importeer Demo Data
+                </button>
+                <span id="rp-import-demo-status"></span>
+            <?php endif; ?>
+        </div>
+        
+        <hr>
+        
+        <!-- Employees CSV Import -->
+        <div class="rp-import-block">
+            <h3>👥 Medewerkers Importeren (CSV)</h3>
+            <p>Upload een CSV bestand met medewerkers. Vereiste kolommen: <code>voornaam, achternaam, email, telefoon, locaties, is_admin</code></p>
+            <p><small>Locaties: komma-gescheiden lijst. Is admin: ja/nee of 1/0</small></p>
+            
+            <form id="rp-import-employees-form" enctype="multipart/form-data">
+                <input type="file" name="csv_file" accept=".csv,.txt" required>
+                <button type="submit" class="button">Importeren</button>
+            </form>
+            <div id="rp-import-employees-result"></div>
+            
+            <p style="margin-top: 10px;">
+                <a href="<?php echo ROOSTER_PLANNER_PLUGIN_URL; ?>assets/sample-employees.csv" download class="button button-small">
+                    ⬇️ Download Voorbeeld CSV
+                </a>
+            </p>
+        </div>
+        
+        <hr>
+        
+        <!-- Shifts CSV Import -->
+        <div class="rp-import-block">
+            <h3>⏰ Shifts Importeren (CSV)</h3>
+            <p>Upload een CSV bestand met shifts. Vereiste kolommen: <code>locatie, naam, start_tijd, eind_tijd, kleur</code></p>
+            <p><small>Tijden: HH:MM formaat. Kleur: optioneel hex code (#RRGGBB)</small></p>
+            
+            <form id="rp-import-shifts-form" enctype="multipart/form-data">
+                <input type="file" name="csv_file" accept=".csv,.txt" required>
+                <button type="submit" class="button">Importeren</button>
+            </form>
+            <div id="rp-import-shifts-result"></div>
+            
+            <p style="margin-top: 10px;">
+                <a href="<?php echo ROOSTER_PLANNER_PLUGIN_URL; ?>assets/sample-shifts.csv" download class="button button-small">
+                    ⬇️ Download Voorbeeld CSV
+                </a>
+            </p>
+        </div>
+    </div>
+    
+    <div class="rp-section">
         <h2>Systeem Informatie</h2>
         <table class="form-table">
             <tr>
@@ -135,4 +200,156 @@
 .rp-danger-buttons {
     margin-top: 15px;
 }
+.rp-import-block {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f0f6fc;
+    border-radius: 4px;
+}
+.rp-import-block h3 {
+    margin-top: 0;
+}
+.rp-import-result {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+.rp-import-result.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+.rp-import-result.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
 </style>
+
+<script>
+jQuery(document).ready(function($) {
+    // Demo Data Import
+    $('#rp-import-demo-btn').on('click', function() {
+        var $btn = $(this);
+        var $status = $('#rp-import-demo-status');
+        
+        $btn.prop('disabled', true).text('Bezig met importeren...');
+        $status.text('');
+        
+        $.ajax({
+            url: rpAjax.ajaxUrl,
+            type: 'POST',
+            data: {
+                action: 'rp_import_demo_data',
+                nonce: rpAjax.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    $status.html('<span style="color:green">✅ ' + response.data.message + '</span>');
+                    $btn.fadeOut();
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    $status.html('<span style="color:red">❌ ' + response.data + '</span>');
+                    $btn.prop('disabled', false).text('📦 Importeer Demo Data');
+                }
+            },
+            error: function() {
+                $status.html('<span style="color:red">❌ Er is een fout opgetreden</span>');
+                $btn.prop('disabled', false).text('📦 Importeer Demo Data');
+            }
+        });
+    });
+    
+    // Employees CSV Import
+    $('#rp-import-employees-form').on('submit', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var $result = $('#rp-import-employees-result');
+        var formData = new FormData(this);
+        formData.append('action', 'rp_import_employees_csv');
+        formData.append('nonce', rpAjax.nonce);
+        
+        $form.find('button').prop('disabled', true).text('Bezig met importeren...');
+        $result.removeClass('success error').empty();
+        
+        $.ajax({
+            url: rpAjax.ajaxUrl,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $form.find('button').prop('disabled', false).text('Importeren');
+                
+                if (response.success) {
+                    var html = '<div class="rp-import-result success">';
+                    html += '<strong>✅ ' + response.data.message + '</strong>';
+                    if (response.data.errors.length > 0) {
+                        html += '<ul style="margin-top:10px;">';
+                        response.data.errors.forEach(function(err) {
+                            html += '<li>' + err + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                    $result.html(html);
+                    $form[0].reset();
+                } else {
+                    $result.html('<div class="rp-import-result error">❌ ' + response.data + '</div>');
+                }
+            },
+            error: function() {
+                $form.find('button').prop('disabled', false).text('Importeren');
+                $result.html('<div class="rp-import-result error">❌ Er is een fout opgetreden</div>');
+            }
+        });
+    });
+    
+    // Shifts CSV Import
+    $('#rp-import-shifts-form').on('submit', function(e) {
+        e.preventDefault();
+        var $form = $(this);
+        var $result = $('#rp-import-shifts-result');
+        var formData = new FormData(this);
+        formData.append('action', 'rp_import_shifts_csv');
+        formData.append('nonce', rpAjax.nonce);
+        
+        $form.find('button').prop('disabled', true).text('Bezig met importeren...');
+        $result.removeClass('success error').empty();
+        
+        $.ajax({
+            url: rpAjax.ajaxUrl,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $form.find('button').prop('disabled', false).text('Importeren');
+                
+                if (response.success) {
+                    var html = '<div class="rp-import-result success">';
+                    html += '<strong>✅ ' + response.data.message + '</strong>';
+                    if (response.data.errors.length > 0) {
+                        html += '<ul style="margin-top:10px;">';
+                        response.data.errors.forEach(function(err) {
+                            html += '<li>' + err + '</li>';
+                        });
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                    $result.html(html);
+                    $form[0].reset();
+                } else {
+                    $result.html('<div class="rp-import-result error">❌ ' + response.data + '</div>');
+                }
+            },
+            error: function() {
+                $form.find('button').prop('disabled', false).text('Importeren');
+                $result.html('<div class="rp-import-result error">❌ Er is een fout opgetreden</div>');
+            }
+        });
+    });
+});
+</script>

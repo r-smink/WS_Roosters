@@ -44,12 +44,12 @@ class Notifications {
             $user = get_user_by('id', $emp->user_id);
             if ($user) {
                 wp_mail($user->user_email, 'Herinnering: Dienst morgen',
-                    "Hallo {$emp->display_name},\n\n" .
-                    "Dit is een herinnering dat je morgen (" . date('d-m-Y', strtotime($emp->work_date)) . ") een dienst hebt:\n" .
-                    "Shift: {$emp->shift_name}\n" .
-                    "Starttijd: " . substr($emp->start_time, 0, 5) . "\n\n" .
-                    "Bekijk je rooster in de app.\n\n" .
-                    "Groet,\n" .
+                    "Hallo {$emp->display_name}," .
+                    "Dit is een herinnering dat je morgen (" . date('d-m-Y', strtotime($emp->work_date)) . ") een dienst hebt:" .
+                    "Shift: {$emp->shift_name}" .
+                    "Starttijd: " . substr($emp->start_time, 0, 5) . "" .
+                    "Bekijk je rooster in de app." .
+                    "Groet," .
                     get_bloginfo('name')
                 );
             }
@@ -80,11 +80,11 @@ class Notifications {
                 
                 if ($emp->user_email) {
                     wp_mail($emp->user_email, 'Herinnering: Beschikbaarheid doorgeven',
-                        "Hallo {$emp->display_name},\n\n" .
-                        "Dit is een vriendelijke herinnering om je beschikbaarheid door te geven voor {$next_month}.\n" .
+                        "Hallo {$emp->display_name}," .
+                        "Dit is een vriendelijke herinnering om je beschikbaarheid door te geven voor {$next_month}." .
                         "Deadline: {$deadline}\n\n" .
-                        "Ga naar de app om je beschikbaarheid in te vullen.\n\n" .
-                        "Groet,\n" .
+                        "Ga naar de app om je beschikbaarheid in te vullen." .
+                        "Groet," .
                         get_bloginfo('name')
                     );
                 }
@@ -108,13 +108,13 @@ class Notifications {
             get_current_user_id()
         ));
         
-        echo '<div id="rp-notification-bell" class="rp-notification-bell" style="display:none;">\n';
-        echo '<span class="rp-bell-icon">🔔</span>\n';
+        echo '<div id="rp-notification-bell" class="rp-notification-bell" style="display:none;">';
+        echo '<span class="rp-bell-icon">🔔</span>';
         if ($unread_count > 0) {
-            echo '<span class="rp-notification-badge">' . $unread_count . '</span>\n';
+            echo '<span class="rp-notification-badge">' . $unread_count . '</span>';
         }
-        echo '</div>\n';
-        echo '<div id="rp-notification-panel" class="rp-notification-panel" style="display:none;"></div>\n';
+        echo '</div>';
+        echo '<div id="rp-notification-panel" class="rp-notification-panel" style="display:none;"></div>';
     }
     
     private function create_notification($user_id, $type, $title, $message) {
