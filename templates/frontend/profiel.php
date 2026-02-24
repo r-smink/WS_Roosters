@@ -38,10 +38,10 @@
             <div class="rp-preference-field">
                 <label>Thema</label>
                 <div class="rp-theme-toggle">
-                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'light' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('light')">
+                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'light' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('light', this)">
                         ☀️ Licht
                     </button>
-                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'dark' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('dark')">
+                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'dark' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('dark', this)">
                         🌙 Donker
                     </button>
                 </div>
@@ -116,7 +116,7 @@
     </div>
 
 <script>
-function setTheme(theme) {
+function setTheme(theme, btn) {
     jQuery.ajax({
         url: rpAjax.ajaxUrl,
         type: 'POST',
@@ -128,12 +128,12 @@ function setTheme(theme) {
         success: function(response) {
             if (response.success) {
                 // Update button styles
-                document.querySelectorAll('.rp-theme-toggle .rp-btn').forEach(function(btn) {
-                    btn.classList.remove('rp-btn-primary');
-                    btn.classList.add('rp-btn-secondary');
+                document.querySelectorAll('.rp-theme-toggle .rp-btn').forEach(function(b) {
+                    b.classList.remove('rp-btn-primary');
+                    b.classList.add('rp-btn-secondary');
                 });
-                event.target.classList.remove('rp-btn-secondary');
-                event.target.classList.add('rp-btn-primary');
+                btn.classList.remove('rp-btn-secondary');
+                btn.classList.add('rp-btn-primary');
                 
                 // Apply theme immediately
                 document.querySelector('.rp-container').classList.toggle('rp-dark-theme', theme === 'dark');

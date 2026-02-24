@@ -26,6 +26,24 @@
     --rp-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
+.rp-container.rp-dark-theme,
+.rp-container.rp-dark-theme * {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme h1,
+.rp-container.rp-dark-theme h2,
+.rp-container.rp-dark-theme h3,
+.rp-container.rp-dark-theme h4,
+.rp-container.rp-dark-theme h5,
+.rp-container.rp-dark-theme h6 {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme a {
+    color: #818cf8;
+}
+
 .rp-container.rp-dark-theme .rp-card {
     background: #1f2937;
 }
@@ -52,14 +70,20 @@
     border-color: #374151;
 }
 
+.rp-container.rp-dark-theme .rp-alert.rp-alert-warning {
+    background: #451a03;
+    border-color: #92400e;
+    color: #fcd34d;
+}
+
 /* Reset & Base */
 .rp-container * {
     box-sizing: border-box;
 }
 
 .rp-container {
-    font-family: var(--rp-font);
-    color: var(--rp-text);
+    font-family: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: #1f2937;
     line-height: 1.6;
 }
 
@@ -69,8 +93,19 @@
 .rp-container h4,
 .rp-container h5,
 .rp-container h6 {
-    color: var(--rp-text);
+    color: #1f2937;
     font-weight: 700;
+}
+
+.rp-container p,
+.rp-container span,
+.rp-container div,
+.rp-container label {
+    color: #1f2937;
+}
+
+.rp-container a {
+    color: #4F46E5;
 }
 
 /* Buttons */

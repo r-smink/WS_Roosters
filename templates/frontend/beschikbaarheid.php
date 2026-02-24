@@ -41,12 +41,16 @@
     </div>
     
     <div class="rp-location-tabs">
+        <?php if (empty($employee_locations)): ?>
+        <div class="rp-alert rp-alert-warning">Je bent nog niet toegewezen aan een locatie. Neem contact op met de planner.</div>
+        <?php else: ?>
         <?php foreach ($employee_locations as $index => $loc): ?>
         <a href="?month=<?php echo $target_month; ?>&location=<?php echo $loc->location_id; ?>" 
            class="rp-tab <?php echo $location_id == $loc->location_id ? 'rp-active' : ''; ?>">
             <?php echo esc_html($loc->name); ?>
         </a>
         <?php endforeach; ?>
+        <?php endif; ?>
     </div>
     
     <form id="availability-form" class="rp-availability-form">
@@ -70,6 +74,7 @@
                     $has_data = $day['availability'] !== null;
                     $is_available = $day['is_available'];
                     
+                    // Determine the correct cell class based on data state
                     if (!$has_data) {
                         $cell_class = 'rp-no-data';
                     } elseif ($is_available) {
@@ -105,6 +110,23 @@
                             <?php endforeach; ?>
                         </select>
                         
+                        <div class="rp-custom-time">
+                            <label class="rp-time-label">Of eigen tijd:</label>
+                            <div class="rp-time-inputs">
+                                <input type="time" 
+                                       class="rp-time-from" 
+                                       data-date="<?php echo $day['date']; ?>"
+                                       value="<?php echo esc_attr($day['custom_start'] ?? ''); ?>"
+                                       placeholder="Van">
+                                <span>-</span>
+                                <input type="time" 
+                                       class="rp-time-to" 
+                                       data-date="<?php echo $day['date']; ?>"
+                                       value="<?php echo esc_attr($day['custom_end'] ?? ''); ?>"
+                                       placeholder="Tot">
+                            </div>
+                        </div>
+                        
                         <input type="text" 
                                class="rp-notes" 
                                data-date="<?php echo $day['date']; ?>"
@@ -135,6 +157,7 @@
             <li><strong>✓</strong> = Ik ben beschikbaar om te werken</li>
             <li><strong>✗</strong> = Ik ben niet beschikbaar (vrije dag)</li>
             <li>Selecteer je voorkeursshift als je een voorkeur hebt</li>
+            <li>Of vul zelf een tijd in bij "Eigen tijd"</li>
             <li>Geef eventuele extra informatie bij notities</li>
             <li>Deadline voor doorgeven is de 15e van elke maand</li>
         </ul>
@@ -150,11 +173,15 @@ jQuery('#availability-form').on('submit', function(e) {
         const date = jQuery(this).data('date');
         const isAvailable = jQuery(this).find('.rp-avail-check').is(':checked');
         const shiftId = jQuery(this).find('.rp-shift-pref').val();
+        const customStart = jQuery(this).find('.rp-time-from').val();
+        const customEnd = jQuery(this).find('.rp-time-to').val();
         const notes = jQuery(this).find('.rp-notes').val();
         
         availability[date] = {
             available: isAvailable,
             shift_id: shiftId,
+            custom_start: customStart,
+            custom_end: customEnd,
             notes: notes
         };
     });
@@ -239,6 +266,11 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-unavailable .rp-toggle-text { background: #f8d7da; color: #721c24; }
 .rp-shift-pref, .rp-notes { width: 100%; padding: 4px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; }
 .rp-notes { resize: none; }
+.rp-custom-time { margin: 4px 0; }
+.rp-time-label { font-size: 11px; color: #6b7280; display: block; margin-bottom: 2px; }
+.rp-time-inputs { display: flex; align-items: center; gap: 4px; }
+.rp-time-inputs input { flex: 1; padding: 3px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; }
+.rp-time-inputs span { color: #6b7280; font-size: 11px; }
 .rp-available { background: #d4edda; }
 .rp-unavailable { background: #f8d7da; }
 .rp-no-data { background: #f9fafb; }

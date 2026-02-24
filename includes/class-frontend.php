@@ -12,6 +12,7 @@ class Frontend {
         add_shortcode('roosterplanner_chat', [$this, 'render_chat']);
         add_shortcode('roosterplanner_ziekmelden', [$this, 'render_ziekmelden']);
         add_shortcode('roosterplanner_profielformulier', [$this, 'render_profielformulier']);
+        add_shortcode('roosterplanner_berichten', [$this, 'render_berichten']);
         
         add_action('wp_login', [$this, 'after_login_redirect'], 10, 2);
     }
@@ -165,7 +166,7 @@ class Frontend {
         $location_id = isset($_GET['location']) ? intval($_GET['location']) : 0;
         
         // Validate location
-        $employee_locations = $wpdb->get_col($wpdb->prepare(
+        $employee_locations = $wpdb->get_results($wpdb->prepare(
             "SELECT el.location_id, l.name FROM {$wpdb->prefix}rp_employee_locations el
             LEFT JOIN {$wpdb->prefix}rp_locations l ON el.location_id = l.id
             WHERE el.employee_id = %d",
@@ -210,6 +211,9 @@ class Frontend {
         }
         
         global $wpdb;
+        
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
         
         // Get my shifts that can be swapped
         $my_shifts = $wpdb->get_results($wpdb->prepare(
@@ -327,6 +331,9 @@ class Frontend {
         
         global $wpdb;
         
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         // Get upcoming shifts
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
@@ -372,6 +379,37 @@ class Frontend {
         ob_start();
         echo '<div class="rp-container rp-profiel' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/profiel.php';
+        echo '</div>';
+        return ob_get_clean();
+    }
+    
+    public function render_berichten($atts) {
+        if (!is_user_logged_in()) {
+            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken.</div>';
+        }
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            return '<div class="rp-notice rp-notice-error">Je hebt geen toegang tot het roostersysteem.</div>';
+        }
+        
+        global $wpdb;
+        
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
+        // Get all notifications for user
+        $notifications = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_notifications
+            WHERE user_id = %d
+            ORDER BY created_at DESC
+            LIMIT 50",
+            get_current_user_id()
+        ));
+        
+        ob_start();
+        echo '<div class="rp-container rp-berichten' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/berichten.php';
         echo '</div>';
         return ob_get_clean();
     }
@@ -481,6 +519,8 @@ class Frontend {
                 'availability' => $avail,
                 'is_available' => $avail ? $avail->is_available : null,
                 'shift_preference' => $avail ? $avail->shift_preference : null,
+                'custom_start' => $avail ? $avail->custom_start : '',
+                'custom_end' => $avail ? $avail->custom_end : '',
                 'notes' => $avail ? $avail->notes : ''
             ];
         }

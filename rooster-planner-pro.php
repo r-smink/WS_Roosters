@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.2
+ * Version: 1.3.5
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.2');
+define('ROOSTER_PLANNER_VERSION', '1.3.5');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -117,6 +117,8 @@ function rooster_planner_activate() {
         work_date date NOT NULL,
         is_available tinyint(1) DEFAULT 1,
         shift_preference bigint(20) DEFAULT NULL,
+        custom_start time DEFAULT NULL,
+        custom_end time DEFAULT NULL,
         notes varchar(255),
         submitted_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -269,6 +271,18 @@ function rooster_planner_run_upgrades() {
         }
     }
     
+    // Add custom_start and custom_end to availability table (version 1.3.5+)
+    if (version_compare($installed_version, '1.3.5', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_availability");
+        
+        if (!in_array('custom_start', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_availability ADD COLUMN custom_start time DEFAULT NULL AFTER shift_preference");
+        }
+        if (!in_array('custom_end', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_availability ADD COLUMN custom_end time DEFAULT NULL AFTER custom_start");
+        }
+    }
+    
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
 }
@@ -309,6 +323,10 @@ function rooster_planner_create_pages() {
         'medewerker-profiel' => [
             'title' => 'Mijn Profiel',
             'content' => '[roosterplanner_profielformulier]'
+        ],
+        'medewerker-berichten' => [
+            'title' => 'Mijn Berichten',
+            'content' => '[roosterplanner_berichten]'
         ]
     ];
     
@@ -402,7 +420,7 @@ function rooster_planner_pwa_head() {
     $page_slug = get_post_field('post_name', get_the_ID());
     $plugin_pages = ['medewerker-login', 'medewerker-dashboard', 'medewerker-rooster', 
                      'medewerker-beschikbaarheid', 'medewerker-ruilen', 'medewerker-chat',
-                     'medewerker-ziekmelden', 'medewerker-profiel'];
+                     'medewerker-ziekmelden', 'medewerker-profiel', 'medewerker-berichten'];
     
     if (!in_array($page_slug, $plugin_pages)) return;
     

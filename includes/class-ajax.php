@@ -235,6 +235,8 @@ class Ajax {
                 'work_date' => sanitize_text_field($date),
                 'is_available' => $data['available'] ? 1 : 0,
                 'shift_preference' => !empty($data['shift_id']) ? intval($data['shift_id']) : null,
+                'custom_start' => !empty($data['custom_start']) ? sanitize_text_field($data['custom_start']) : null,
+                'custom_end' => !empty($data['custom_end']) ? sanitize_text_field($data['custom_end']) : null,
                 'notes' => !empty($data['notes']) ? sanitize_text_field($data['notes']) : null
             ]);
         }
