@@ -70,10 +70,221 @@
     border-color: #374151;
 }
 
-.rp-container.rp-dark-theme .rp-alert.rp-alert-warning {
+/* Dark Theme - Extended */
+.rp-container.rp-dark-theme,
+.rp-container.rp-dark-theme * {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme h1,
+.rp-container.rp-dark-theme h2,
+.rp-container.rp-dark-theme h3,
+.rp-container.rp-dark-theme h4,
+.rp-container.rp-dark-theme h5,
+.rp-container.rp-dark-theme h6 {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme p,
+.rp-container.rp-dark-theme span,
+.rp-container.rp-dark-theme div,
+.rp-container.rp-dark-theme label {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-stat-value,
+.rp-container.rp-dark-theme .rp-stat-label,
+.rp-container.rp-dark-theme .rp-stat-content p,
+.rp-container.rp-dark-theme .rp-stat-content h3 {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-stat-value {
+    color: #818cf8;
+}
+
+.rp-container.rp-dark-theme .rp-location-item span,
+.rp-container.rp-dark-theme .rp-shift-time,
+.rp-container.rp-dark-theme .rp-shift-location,
+.rp-container.rp-dark-theme .rp-empty,
+.rp-container.rp-dark-theme .rp-chat-hint,
+.rp-container.rp-dark-theme .rp-missing,
+.rp-container.rp-dark-theme .rp-description,
+.rp-container.rp-dark-theme .rp-month,
+.rp-container.rp-dark-theme .rp-day-number,
+.rp-container.rp-dark-theme .rp-weekday {
+    color: var(--rp-text-muted);
+}
+
+.rp-container.rp-dark-theme .rp-action-item {
+    background: #1f2937;
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-action-item:hover {
+    background: #374151;
+}
+
+.rp-container.rp-dark-theme .rp-shift-item {
+    background: #1f2937;
+    border-left-color: #818cf8;
+}
+
+.rp-container.rp-dark-theme .rp-stat {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-location-item {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-tab {
+    background: #1f2937;
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-tab.rp-active {
+    background: #4F46E5;
+    color: #fff;
+}
+
+.rp-container.rp-dark-theme .rp-calendar-header {
+    background: #111827;
+}
+
+.rp-container.rp-dark-theme .rp-info-bar {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-instructions {
+    background: #064e3b;
+    border-left-color: #10B981;
+}
+
+.rp-container.rp-dark-theme .rp-instructions h3,
+.rp-container.rp-dark-theme .rp-instructions li {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-alert-info {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+}
+
+.rp-container.rp-dark-theme .rp-alert-info strong,
+.rp-container.rp-dark-theme .rp-alert-info p {
+    color: #93c5fd;
+}
+
+.rp-container.rp-dark-theme .rp-btn-secondary {
+    background: #374151;
+    color: var(--rp-text);
+    border-color: #4b5563;
+}
+
+.rp-container.rp-dark-theme .rp-btn-secondary:hover {
+    background: #4b5563;
+}
+
+.rp-container.rp-dark-theme .rp-form-actions {
+    background: #111827;
+}
+
+.rp-container.rp-dark-theme .rp-empty {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-weekend {
+    background: #111827;
+}
+
+.rp-container.rp-dark-theme .rp-today {
+    background: #1e3a8a;
+}
+
+.rp-container.rp-dark-theme .rp-available {
+    background: #064e3b;
+}
+
+.rp-container.rp-dark-theme .rp-unavailable {
     background: #451a03;
-    border-color: #92400e;
+}
+
+.rp-container.rp-dark-theme .rp-no-data {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-toggle-text {
+    background: #374151;
+}
+
+.rp-container.rp-dark-theme .rp-available .rp-toggle-text {
+    background: #059669;
+    color: #fff;
+}
+
+.rp-container.rp-dark-theme .rp-unavailable .rp-toggle-text {
+    background: #dc2626;
+    color: #fff;
+}
+
+.rp-container.rp-dark-theme .rp-shift-pref,
+.rp-container.rp-dark-theme .rp-notes,
+.rp-container.rp-dark-theme .rp-time-inputs input {
+    background: #111827;
+    color: var(--rp-text);
+    border-color: #374151;
+}
+
+.rp-container.rp-dark-theme .rp-time-label {
+    color: var(--rp-text-muted);
+}
+
+.rp-container.rp-dark-theme input[type="time"] {
+    background: #111827;
+    color: var(--rp-text);
+    border-color: #374151;
+}
+
+.rp-container.rp-dark-theme select {
+    background: #111827;
+    color: var(--rp-text);
+    border-color: #374151;
+}
+
+.rp-container.rp-dark-theme .rp-save-status .rp-saving {
+    color: var(--rp-text-muted);
+}
+
+.rp-container.rp-dark-theme .rp-save-status .rp-saved {
+    color: #34d399;
+}
+
+.rp-container.rp-dark-theme .rp-alert.rp-alert-warning strong,
+.rp-container.rp-dark-theme .rp-alert.rp-alert-warning p {
     color: #fcd34d;
+}
+
+.rp-container.rp-dark-theme .rp-card,
+.rp-container.rp-dark-theme .rp-calendar-wrapper {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-card h2 {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-header h1 {
+    color: var(--rp-text);
+}
+
+.rp-container.rp-dark-theme .rp-action-urgent {
+    background: #451a03;
+    color: #fca5a5;
+}
+
+.rp-container.rp-dark-theme .rp-action-urgent:hover {
+    background: #7f1d1d;
 }
 
 /* Reset & Base */

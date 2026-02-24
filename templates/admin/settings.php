@@ -34,6 +34,16 @@
                     </td>
                 </tr>
                 <tr>
+                    <th><label for="rp_enable_dark_theme">Dark Theme</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_enable_dark_theme" name="rooster_planner_options[enable_dark_theme]" value="1" <?php checked(get_option('rooster_planner_enable_dark_theme', 1)); ?>>
+                            Sta medewerkers toe om dark theme te gebruiken
+                        </label>
+                        <p class="description">Wanneer uitgeschakeld kunnen medewerkers geen dark theme kiezen in hun profiel.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th><label for="rp_email_notifications">Email Notificaties</label></th>
                     <td>
                         <label>
@@ -59,6 +69,13 @@
                             Activeer het invullen van gewerkte uren per shift
                         </label>
                         <p class="description">Medewerkers en admins kunnen werkelijke start- en eindtijden invoeren.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_custom_css">Aangepaste CSS</label></th>
+                    <td>
+                        <textarea id="rp_custom_css" name="rooster_planner_options[custom_css]" rows="10" class="large-text code"><?php echo esc_textarea(get_option('rooster_planner_custom_css', '')); ?></textarea>
+                        <p class="description">Voeg hier je eigen CSS toe om de frontend te stylen. Deze CSS wordt op alle frontend pagina's geladen.</p>
                     </td>
                 </tr>
             </table>

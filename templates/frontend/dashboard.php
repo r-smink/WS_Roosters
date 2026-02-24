@@ -79,6 +79,9 @@
             <div class="rp-alert rp-alert-info">
                 <strong>Ongelezen berichten</strong>
                 <p>Je hebt <?php echo $unread_count; ?> nieuwe notificatie(s).</p>
+                <a href="<?php echo home_url('/medewerker-berichten/'); ?>" class="rp-btn rp-btn-small rp-btn-primary">
+                    Bekijk Berichten
+                </a>
             </div>
             <?php endif; ?>
         </section>

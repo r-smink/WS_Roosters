@@ -34,6 +34,8 @@ class Ajax {
         add_action('wp_ajax_rp_save_fixed_schedule', [$this, 'save_fixed_schedule']);
         add_action('wp_ajax_rp_toggle_swappable', [$this, 'toggle_swappable']);
         add_action('wp_ajax_rp_save_theme_preference', [$this, 'save_theme_preference']);
+        add_action('wp_ajax_rp_save_email_preference', [$this, 'save_email_preference']);
+        add_action('wp_ajax_rp_save_push_preference', [$this, 'save_push_preference']);
     }
     
     public function save_schedule() {
@@ -895,5 +897,49 @@ class Ajax {
         ], ['id' => $employee->id]);
         
         wp_send_json_success(['theme' => $theme]);
+    }
+    
+    /**
+     * Save email notification preference for employee
+     */
+    public function save_email_preference() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $enabled = intval($_POST['enabled']);
+        
+        $wpdb->update($wpdb->prefix . 'rp_employees', [
+            'email_notifications' => $enabled
+        ], ['id' => $employee->id]);
+        
+        wp_send_json_success(['enabled' => $enabled]);
+    }
+    
+    /**
+     * Save push notification preference for employee
+     */
+    public function save_push_preference() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $enabled = intval($_POST['enabled']);
+        
+        $wpdb->update($wpdb->prefix . 'rp_employees', [
+            'push_notifications' => $enabled
+        ], ['id' => $employee->id]);
+        
+        wp_send_json_success(['enabled' => $enabled]);
     }
 }

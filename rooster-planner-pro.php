@@ -2,17 +2,19 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.5
+ * Version: 1.3.6
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
+ * Requires at least: 6.7
+ * Requires PHP: 8.1
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.5');
+define('ROOSTER_PLANNER_VERSION', '1.3.6');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -71,6 +73,8 @@ function rooster_planner_activate() {
         is_admin tinyint(1) DEFAULT 0,
         is_fixed tinyint(1) DEFAULT 0 COMMENT 'Vaste medewerker - geen beschikbaarheid nodig alleen voor vrij vragen',
         theme_preference varchar(20) DEFAULT 'light' COMMENT 'light of dark theme voorkeur',
+        email_notifications tinyint(1) DEFAULT 1 COMMENT 'Email notificaties ingeschakeld',
+        push_notifications tinyint(1) DEFAULT 1 COMMENT 'Push notificaties ingeschakeld',
         is_active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -283,6 +287,18 @@ function rooster_planner_run_upgrades() {
         }
     }
     
+    // Add email_notifications and push_notifications to employees table (version 1.3.6+)
+    if (version_compare($installed_version, '1.3.6', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('email_notifications', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN email_notifications tinyint(1) DEFAULT 1 AFTER theme_preference");
+        }
+        if (!in_array('push_notifications', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1 AFTER email_notifications");
+        }
+    }
+    
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
 }
@@ -388,6 +404,8 @@ function rooster_planner_register_settings() {
     register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
+    register_setting('rooster_planner_options', 'rooster_planner_enable_dark_theme');
+    register_setting('rooster_planner_options', 'rooster_planner_custom_css');
     
     // PWA Settings
     register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_app_name');
@@ -438,6 +456,12 @@ function rooster_planner_pwa_head() {
     
     // Load Google Font
     echo '<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">' . "\n";
+    
+    // Output custom CSS
+    $custom_css = get_option('rooster_planner_custom_css', '');
+    if (!empty($custom_css)) {
+        echo '<style>' . wp_strip_all_tags($custom_css) . '</style>' . "\n";
+    }
 }
 
 // Login redirect to medewerker-dashboard
