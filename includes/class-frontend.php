@@ -43,6 +43,9 @@ class Frontend {
         
         global $wpdb;
         
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         // Get upcoming shifts
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
@@ -83,7 +86,9 @@ class Frontend {
         ));
         
         ob_start();
+        echo '<div class="rp-container rp-dashboard' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/dashboard.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -114,6 +119,9 @@ class Frontend {
         $location_id = isset($_GET['location']) ? intval($_GET['location']) : ($employee_locations[0] ?? 0);
         $current_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : current_time('Y-m');
         
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         if (!in_array($location_id, $employee_locations) && !$employee->is_admin) {
             $location_id = $employee_locations[0] ?? 0;
         }
@@ -131,7 +139,9 @@ class Frontend {
         $calendar = $this->build_calendar($current_month, $schedules, $view, $location_id);
         
         ob_start();
+        echo '<div class="rp-container rp-rooster' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/rooster.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -149,10 +159,13 @@ class Frontend {
         
         // Get next month for availability submission
         $target_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m', strtotime('+1 month'));
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         $location_id = isset($_GET['location']) ? intval($_GET['location']) : 0;
         
-        // Get employee's locations
-        $employee_locations = $wpdb->get_results($wpdb->prepare(
+        // Validate location
+        $employee_locations = $wpdb->get_col($wpdb->prepare(
             "SELECT el.location_id, l.name FROM {$wpdb->prefix}rp_employee_locations el
             LEFT JOIN {$wpdb->prefix}rp_locations l ON el.location_id = l.id
             WHERE el.employee_id = %d",
@@ -180,7 +193,9 @@ class Frontend {
         $calendar = $this->build_availability_calendar($target_month, $existing_availability, $shifts);
         
         ob_start();
+        echo '<div class="rp-container rp-beschikbaarheid' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/beschikbaarheid.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -207,7 +222,7 @@ class Frontend {
             $employee->id, current_time('Y-m-d')
         ));
         
-        // Get available shifts from others
+        // Get available shifts from others (only those marked as swappable)
         $my_locations = $wpdb->get_col($wpdb->prepare(
             "SELECT location_id FROM {$wpdb->prefix}rp_employee_locations WHERE employee_id = %d",
             $employee->id
@@ -225,6 +240,7 @@ class Frontend {
                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
                 WHERE s.employee_id != %d AND s.work_date >= %s 
                 AND s.status IN ('scheduled', 'confirmed') AND s.location_id IN ($placeholders)
+                AND s.is_swappable = 1
                 AND s.id NOT IN (SELECT schedule_id FROM {$wpdb->prefix}rp_shift_swaps WHERE status = 'pending')
                 ORDER BY s.work_date ASC
                 LIMIT 50",
@@ -261,7 +277,9 @@ class Frontend {
         ));
         
         ob_start();
+        echo '<div class="rp-container rp-ruilen' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/ruilen.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -277,6 +295,9 @@ class Frontend {
         
         global $wpdb;
         
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         // Get recent messages (last 50)
         $messages = $wpdb->get_results("SELECT m.*, u.display_name as sender_name, u.ID as sender_user_id
             FROM {$wpdb->prefix}rp_chat_messages m
@@ -288,7 +309,9 @@ class Frontend {
         $messages = array_reverse($messages);
         
         ob_start();
+        echo '<div class="rp-container rp-chat' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/chat.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -317,7 +340,9 @@ class Frontend {
         ));
         
         ob_start();
+        echo '<div class="rp-container rp-ziekmelden' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/ziekmelden.php';
+        echo '</div>';
         return ob_get_clean();
     }
     
@@ -333,6 +358,9 @@ class Frontend {
         
         global $wpdb;
         
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
         $user = wp_get_current_user();
         $employee_locations = $wpdb->get_results($wpdb->prepare(
             "SELECT l.* FROM {$wpdb->prefix}rp_employee_locations el
@@ -342,7 +370,9 @@ class Frontend {
         ));
         
         ob_start();
+        echo '<div class="rp-container rp-profiel' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/profiel.php';
+        echo '</div>';
         return ob_get_clean();
     }
     

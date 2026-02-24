@@ -1,12 +1,11 @@
-<div class="rp-container rp-beschikbaarheid">
-    <header class="rp-header">
-        <h1>✅ Beschikbaarheid Doorgeven</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
-                ← Terug
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>✅ Beschikbaarheid Doorgeven</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
+            ← Terug
+        </a>
+    </div>
+</header>
     
     <?php
     $today = current_time('Y-m-d');
@@ -140,7 +139,6 @@
             <li>Deadline voor doorgeven is de 15e van elke maand</li>
         </ul>
     </div>
-</div>
 
 <script>
 jQuery('#availability-form').on('submit', function(e) {

@@ -1,12 +1,11 @@
-<div class="rp-container rp-ziek">
-    <header class="rp-header">
-        <h1>🤒 Ziekmelden</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
-                ← Terug
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>🤒 Ziekmelden</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
+            ← Terug
+        </a>
+    </div>
+</header>
     
     <div class="rp-alert rp-alert-warning">
         <strong>Belangrijk:</strong> Bij ziekmelding wordt er automatisch een verzoek voor vervanging naar alle collega's gestuurd.
@@ -70,7 +69,6 @@
             <?php endforeach; ?>
         </div>
     </div>
-</div>
 
 <script>
 jQuery('#sick-form').on('submit', function(e) {

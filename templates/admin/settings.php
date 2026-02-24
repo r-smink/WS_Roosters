@@ -70,7 +70,69 @@
     </div>
     
     <div class="rp-section">
-        <h2>📥 Import & Data</h2>
+        <h2>� PWA (Progressive Web App) Instellingen</h2>
+        <form method="post" action="options.php" class="rp-form">
+            <?php settings_fields('rooster_planner_pwa_options'); ?>
+            
+            <table class="form-table">
+                <tr>
+                    <th><label for="rp_pwa_app_name">App Naam</label></th>
+                    <td>
+                        <input type="text" id="rp_pwa_app_name" name="rooster_planner_pwa_options[app_name]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_name', 'Rooster Planner')); ?>" class="regular-text">
+                        <p class="description">Naam die op het app icoon en in de browser wordt getoond.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_pwa_app_short_name">Korte Naam</label></th>
+                    <td>
+                        <input type="text" id="rp_pwa_app_short_name" name="rooster_planner_pwa_options[app_short_name]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_short_name', 'Rooster')); ?>" class="regular-text">
+                        <p class="description">Verkorte naam voor op het startscherm (max 12 tekens).</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_pwa_theme_color">Thema Kleur</label></th>
+                    <td>
+                        <input type="color" id="rp_pwa_theme_color" name="rooster_planner_pwa_options[theme_color]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_theme_color', '#4F46E5')); ?>">
+                        <p class="description">Hoofdkleur voor de browser toolbar en splash screen.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_pwa_background_color">Achtergrond Kleur</label></th>
+                    <td>
+                        <input type="color" id="rp_pwa_background_color" name="rooster_planner_pwa_options[background_color]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_background_color', '#ffffff')); ?>">
+                        <p class="description">Achtergrondkleur voor splash screen.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_pwa_icon_192">App Icoon (192x192)</label></th>
+                    <td>
+                        <input type="url" id="rp_pwa_icon_192" name="rooster_planner_pwa_options[icon_192]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_192')); ?>" class="regular-text" placeholder="https://...">
+                        <button type="button" class="button" onclick="rpMediaUploader('rp_pwa_icon_192')">Kies afbeelding</button>
+                        <?php if (get_option('rooster_planner_pwa_icon_192')): ?>
+                        <br><img src="<?php echo esc_url(get_option('rooster_planner_pwa_icon_192')); ?>" style="max-width:64px;margin-top:10px;">
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_pwa_icon_512">App Icoon (512x512)</label></th>
+                    <td>
+                        <input type="url" id="rp_pwa_icon_512" name="rooster_planner_pwa_options[icon_512]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_512')); ?>" class="regular-text" placeholder="https://...">
+                        <button type="button" class="button" onclick="rpMediaUploader('rp_pwa_icon_512')">Kies afbeelding</button>
+                        <?php if (get_option('rooster_planner_pwa_icon_512')): ?>
+                        <br><img src="<?php echo esc_url(get_option('rooster_planner_pwa_icon_512')); ?>" style="max-width:64px;margin-top:10px;">
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+            
+            <p class="submit">
+                <button type="submit" class="button button-primary">PWA Instellingen Opslaan</button>
+            </p>
+        </form>
+    </div>
+    
+    <div class="rp-section">
+        <h2>� Import & Data</h2>
         
         <!-- Demo Data Import -->
         <div class="rp-import-block">
@@ -237,6 +299,34 @@
 </style>
 
 <script>
+// WordPress Media Uploader for PWA icons
+function rpMediaUploader(targetId) {
+    var frame = wp.media({
+        title: 'Selecteer of upload een icoon',
+        button: { text: 'Gebruik dit icoon' },
+        multiple: false,
+        library: { type: 'image' }
+    });
+    
+    frame.on('select', function() {
+        var attachment = frame.state().get('selection').first().toJSON();
+        document.getElementById(targetId).value = attachment.url;
+        // Refresh preview if exists
+        var preview = document.querySelector('#' + targetId).parentNode.querySelector('img');
+        if (preview) {
+            preview.src = attachment.url;
+        } else {
+            var img = document.createElement('img');
+            img.src = attachment.url;
+            img.style.cssText = 'max-width:64px;margin-top:10px;';
+            document.getElementById(targetId).parentNode.appendChild(document.createElement('br'));
+            document.getElementById(targetId).parentNode.appendChild(img);
+        }
+    });
+    
+    frame.open();
+}
+
 jQuery(document).ready(function($) {
     // Demo Data Import
     $('#rp-import-demo-btn').on('click', function() {

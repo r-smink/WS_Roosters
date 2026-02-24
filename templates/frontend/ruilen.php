@@ -1,12 +1,11 @@
-<div class="rp-container rp-ruilen">
-    <header class="rp-header">
-        <h1>🔄 Dienst Ruilen</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
-                ← Terug
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>🔄 Dienst Ruilen</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
+            ← Terug
+        </a>
+    </div>
+</header>
     
     <!-- Swap Requests For Me -->
     <?php if (!empty($requests_for_me)): ?>
@@ -68,6 +67,9 @@
                     <button type="button" class="rp-btn rp-btn-primary" onclick="showSwapModal(<?php echo $shift->id; ?>, '<?php echo esc_js($shift->shift_name); ?>', '<?php echo date('d-m-Y', strtotime($shift->work_date)); ?>')">
                         🔄 Ruilen Aanvragen
                     </button>
+                    <button type="button" class="rp-btn <?php echo $shift->is_swappable ? 'rp-btn-success' : 'rp-btn-secondary'; ?>" onclick="toggleSwappable(<?php echo $shift->id; ?>, this)">
+                        <?php echo $shift->is_swappable ? '✓ Ruilbaar' : 'Markeren als ruilbaar'; ?>
+                    </button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -128,7 +130,6 @@
         </div>
     </div>
     <?php endif; ?>
-</div>
 
 <!-- Swap Request Modal -->
 <div id="swap-modal" class="rp-modal" style="display:none;">
@@ -240,6 +241,32 @@ function takeShift(scheduleId, currentHolder) {
                 location.reload();
             } else {
                 alert('Er is iets misgegaan.');
+            }
+        }
+    });
+}
+
+function toggleSwappable(scheduleId, btn) {
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_toggle_swappable',
+            nonce: rpAjax.nonce,
+            schedule_id: scheduleId
+        },
+        success: function(response) {
+            if (response.success) {
+                // Update button appearance
+                if (response.data.is_swappable) {
+                    jQuery(btn).removeClass('rp-btn-secondary').addClass('rp-btn-success');
+                    jQuery(btn).text('✓ Ruilbaar');
+                } else {
+                    jQuery(btn).removeClass('rp-btn-success').addClass('rp-btn-secondary');
+                    jQuery(btn).text('Markeren als ruilbaar');
+                }
+            } else {
+                alert('Er is iets misgegaan: ' + response.data);
             }
         }
     });

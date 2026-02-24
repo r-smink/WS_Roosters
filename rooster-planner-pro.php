@@ -70,6 +70,7 @@ function rooster_planner_activate() {
         phone varchar(20),
         is_admin tinyint(1) DEFAULT 0,
         is_fixed tinyint(1) DEFAULT 0 COMMENT 'Vaste medewerker - geen beschikbaarheid nodig alleen voor vrij vragen',
+        theme_preference varchar(20) DEFAULT 'light' COMMENT 'light of dark theme voorkeur',
         is_active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -98,6 +99,7 @@ function rooster_planner_activate() {
         actual_end_time time DEFAULT NULL,
         break_minutes int(11) DEFAULT 0,
         status enum('scheduled','confirmed','completed','cancelled','swapped') DEFAULT 'scheduled',
+        is_swappable tinyint(1) DEFAULT 0 COMMENT 'Medewerker heeft dienst als ruilbaar gemarkeerd',
         notes text,
         created_by bigint(20) NOT NULL,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -249,6 +251,24 @@ function rooster_planner_run_upgrades() {
         }
     }
     
+    // Add theme_preference to employees table (version 1.3.2+)
+    if (version_compare($installed_version, '1.3.2', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('theme_preference', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN theme_preference varchar(20) DEFAULT 'light' AFTER is_fixed");
+        }
+    }
+    
+    // Add is_swappable to schedules table (version 1.3.2+)
+    if (version_compare($installed_version, '1.3.2', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_schedules");
+        
+        if (!in_array('is_swappable', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN is_swappable tinyint(1) DEFAULT 0 AFTER status");
+        }
+    }
+    
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
 }
@@ -350,6 +370,14 @@ function rooster_planner_register_settings() {
     register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
+    
+    // PWA Settings
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_app_name');
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_app_short_name');
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_theme_color');
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_background_color');
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_icon_192');
+    register_setting('rooster_planner_pwa_options', 'rooster_planner_pwa_icon_512');
 }
 
 // Enqueue admin assets
@@ -378,12 +406,20 @@ function rooster_planner_pwa_head() {
     
     if (!in_array($page_slug, $plugin_pages)) return;
     
+    // Get PWA settings
+    $app_name = get_option('rooster_planner_pwa_app_name', 'Rooster Planner');
+    $theme_color = get_option('rooster_planner_pwa_theme_color', '#4F46E5');
+    $icon_192 = get_option('rooster_planner_pwa_icon_192') ?: ROOSTER_PLANNER_PLUGIN_URL . 'assets/images/icon-192x192.png';
+    
     echo '<link rel="manifest" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/manifest.json">' . "\n";
-    echo '<meta name="theme-color" content="#4F46E5">' . "\n";
+    echo '<meta name="theme-color" content="' . esc_attr($theme_color) . '">' . "\n";
     echo '<meta name="apple-mobile-web-app-capable" content="yes">' . "\n";
     echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' . "\n";
-    echo '<meta name="apple-mobile-web-app-title" content="RoosterApp">' . "\n";
-    echo '<link rel="apple-touch-icon" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/images/icon-192x192.png">' . "\n";
+    echo '<meta name="apple-mobile-web-app-title" content="' . esc_attr($app_name) . '">' . "\n";
+    echo '<link rel="apple-touch-icon" href="' . esc_url($icon_192) . '">' . "\n";
+    
+    // Load Google Font
+    echo '<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">' . "\n";
 }
 
 // Login redirect to medewerker-dashboard

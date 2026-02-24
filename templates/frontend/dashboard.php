@@ -1,18 +1,17 @@
-<div class="rp-container rp-dashboard">
-    <header class="rp-header">
-        <h1>Welkom <?php echo esc_html(wp_get_current_user()->display_name); ?>!</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-rooster/'); ?>" class="rp-btn rp-btn-primary">
-                📅 Bekijk Rooster
-            </a>
-            <a href="<?php echo home_url('/medewerker-beschikbaarheid/'); ?>" class="rp-btn rp-btn-secondary">
-                ✅ Beschikbaarheid Doorgeven
-            </a>
-            <a href="<?php echo home_url('/medewerker-ruilen/'); ?>" class="rp-btn rp-btn-secondary">
-                🔄 Ruilen
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>Welkom <?php echo esc_html(wp_get_current_user()->display_name); ?>!</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-rooster/'); ?>" class="rp-btn rp-btn-primary">
+            📅 Bekijk Rooster
+        </a>
+        <a href="<?php echo home_url('/medewerker-beschikbaarheid/'); ?>" class="rp-btn rp-btn-secondary">
+            ✅ Beschikbaarheid Doorgeven
+        </a>
+        <a href="<?php echo home_url('/medewerker-ruilen/'); ?>" class="rp-btn rp-btn-secondary">
+            🔄 Ruilen
+        </a>
+    </div>
+</header>
     
     <div class="rp-dashboard-grid">
         <!-- Upcoming Shifts -->

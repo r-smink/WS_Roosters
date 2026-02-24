@@ -32,6 +32,8 @@ class Ajax {
         add_action('wp_ajax_rp_get_notifications', [$this, 'get_notifications']);
         add_action('wp_ajax_rp_report_sick', [$this, 'report_sick']);
         add_action('wp_ajax_rp_save_fixed_schedule', [$this, 'save_fixed_schedule']);
+        add_action('wp_ajax_rp_toggle_swappable', [$this, 'toggle_swappable']);
+        add_action('wp_ajax_rp_save_theme_preference', [$this, 'save_theme_preference']);
     }
     
     public function save_schedule() {
@@ -827,5 +829,69 @@ class Ajax {
             'errors' => $result['errors'],
             'message' => sprintf('%d shifts bijgewerkt', $result['updated'])
         ]);
+    }
+    
+    /**
+     * Toggle swappable status for a schedule
+     */
+    public function toggle_swappable() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $schedule_id = intval($_POST['schedule_id']);
+        
+        // Verify ownership
+        $schedule = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_schedules WHERE id = %d AND employee_id = %d",
+            $schedule_id, $employee->id
+        ));
+        
+        if (!$schedule) {
+            wp_send_json_error('Dienst niet gevonden');
+        }
+        
+        // Toggle the is_swappable status
+        $new_status = $schedule->is_swappable ? 0 : 1;
+        
+        $wpdb->update($wpdb->prefix . 'rp_schedules', [
+            'is_swappable' => $new_status
+        ], ['id' => $schedule_id]);
+        
+        wp_send_json_success([
+            'is_swappable' => $new_status,
+            'message' => $new_status ? 'Dienst is nu gemarkeerd als ruilbaar' : 'Dienst is niet meer ruilbaar'
+        ]);
+    }
+    
+    /**
+     * Save theme preference for employee
+     */
+    public function save_theme_preference() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $theme = sanitize_text_field($_POST['theme']);
+        
+        if (!in_array($theme, ['light', 'dark'])) {
+            wp_send_json_error('Ongeldig thema');
+        }
+        
+        $wpdb->update($wpdb->prefix . 'rp_employees', [
+            'theme_preference' => $theme
+        ], ['id' => $employee->id]);
+        
+        wp_send_json_success(['theme' => $theme]);
     }
 }

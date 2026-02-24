@@ -13,6 +13,43 @@
     --rp-border: #e5e7eb;
     --rp-shadow: 0 2px 8px rgba(0,0,0,0.08);
     --rp-radius: 12px;
+    --rp-font: 'Nunito Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Dark Theme */
+.rp-container.rp-dark-theme {
+    --rp-bg: #111827;
+    --rp-card-bg: #1f2937;
+    --rp-text: #f9fafb;
+    --rp-text-muted: #9ca3af;
+    --rp-border: #374151;
+    --rp-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.rp-container.rp-dark-theme .rp-card {
+    background: #1f2937;
+}
+
+.rp-container.rp-dark-theme .rp-calendar-day {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.rp-container.rp-dark-theme .rp-calendar-day.other-month {
+    background: #111827;
+}
+
+.rp-container.rp-dark-theme .rp-modal-content {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.rp-container.rp-dark-theme input,
+.rp-container.rp-dark-theme select,
+.rp-container.rp-dark-theme textarea {
+    background: #111827;
+    color: #f9fafb;
+    border-color: #374151;
 }
 
 /* Reset & Base */
@@ -21,9 +58,19 @@
 }
 
 .rp-container {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: var(--rp-font);
     color: var(--rp-text);
     line-height: 1.6;
+}
+
+.rp-container h1,
+.rp-container h2,
+.rp-container h3,
+.rp-container h4,
+.rp-container h5,
+.rp-container h6 {
+    color: var(--rp-text);
+    font-weight: 700;
 }
 
 /* Buttons */

@@ -1,12 +1,11 @@
-<div class="rp-container rp-profiel">
-    <header class="rp-header">
-        <h1>👤 Mijn Profiel</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
-                ← Terug
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>👤 Mijn Profiel</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
+            ← Terug
+        </a>
+    </div>
+</header>
     
     <div class="rp-profile-grid">
         <!-- Personal Info -->
@@ -31,6 +30,23 @@
             <a href="<?php echo wp_lostpassword_url(); ?>" class="rp-btn rp-btn-secondary">
                 🔑 Wachtwoord Wijzigen
             </a>
+        </div>
+        
+        <!-- Preferences -->
+        <div class="rp-card">
+            <h2>Voorkeuren</h2>
+            <div class="rp-preference-field">
+                <label>Thema</label>
+                <div class="rp-theme-toggle">
+                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'light' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('light')">
+                        ☀️ Licht
+                    </button>
+                    <button type="button" class="rp-btn <?php echo $employee->theme_preference === 'dark' ? 'rp-btn-primary' : 'rp-btn-secondary'; ?>" onclick="setTheme('dark')">
+                        🌙 Donker
+                    </button>
+                </div>
+                <p class="rp-description">Kies je voorkeursthema voor de app.</p>
+            </div>
         </div>
         
         <!-- Locations -->
@@ -98,7 +114,45 @@
             </a>
         </div>
     </div>
-</div>
+
+<script>
+function setTheme(theme) {
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_save_theme_preference',
+            nonce: rpAjax.nonce,
+            theme: theme
+        },
+        success: function(response) {
+            if (response.success) {
+                // Update button styles
+                document.querySelectorAll('.rp-theme-toggle .rp-btn').forEach(function(btn) {
+                    btn.classList.remove('rp-btn-primary');
+                    btn.classList.add('rp-btn-secondary');
+                });
+                event.target.classList.remove('rp-btn-secondary');
+                event.target.classList.add('rp-btn-primary');
+                
+                // Apply theme immediately
+                document.querySelector('.rp-container').classList.toggle('rp-dark-theme', theme === 'dark');
+                
+                // Store in localStorage for other pages
+                localStorage.setItem('rp_theme', theme);
+            }
+        }
+    });
+}
+
+// Apply stored theme on page load
+document.addEventListener('DOMContentLoaded', function() {
+    var storedTheme = localStorage.getItem('rp_theme');
+    if (storedTheme) {
+        document.querySelector('.rp-container').classList.toggle('rp-dark-theme', storedTheme === 'dark');
+    }
+});
+</script>
 
 <style>
 .rp-container { max-width: 800px; margin: 0 auto; padding: 20px; }
@@ -113,6 +167,10 @@
 .rp-profile-field { margin-bottom: 15px; }
 .rp-profile-field label { display: block; font-size: 12px; color: #9ca3af; text-transform: uppercase; margin-bottom: 4px; }
 .rp-profile-field p { margin: 0; font-size: 16px; color: #1f2937; font-weight: 500; }
+.rp-preference-field { margin-bottom: 15px; }
+.rp-preference-field label { display: block; font-size: 12px; color: #9ca3af; text-transform: uppercase; margin-bottom: 8px; }
+.rp-theme-toggle { display: flex; gap: 10px; }
+.rp-description { font-size: 13px; color: #6b7280; margin-top: 8px; }
 .rp-missing { color: #9ca3af; font-style: italic; }
 .rp-location-list { display: flex; flex-direction: column; gap: 10px; }
 .rp-location-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 6px; }

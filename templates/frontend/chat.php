@@ -1,12 +1,11 @@
-<div class="rp-container rp-chat">
-    <header class="rp-header">
-        <h1>💬 Team Chat</h1>
-        <div class="rp-header-actions">
-            <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
-                ← Terug
-            </a>
-        </div>
-    </header>
+<header class="rp-header">
+    <h1>💬 Team Chat</h1>
+    <div class="rp-header-actions">
+        <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
+            ← Terug
+        </a>
+    </div>
+</header>
     
     <div class="rp-chat-wrapper">
         <div class="rp-chat-messages" id="chat-messages">
@@ -39,7 +38,6 @@
             <p class="rp-chat-hint">Druk op Enter om te versturen. Shift+Enter voor nieuwe regel.</p>
         </div>
     </div>
-</div>
 
 <script>
 let lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
