@@ -197,3 +197,19 @@
         --rp-border: #374151;
     }
 }
+
+/* Custom Styles */
+a.rp-btn.rp-btn-primary {
+    color: white;
+}
+.rp-alert-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    color: #1f2937;
+}
+.rp-alert.rp-alert-info {
+    color: rgb(31, 41, 55);
+}
+.rp-btn-secondary {
+    background: #e3e3e3;
+}

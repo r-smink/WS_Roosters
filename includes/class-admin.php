@@ -141,13 +141,39 @@ class Admin {
         global $wpdb;
         
         $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
-        $employees = $wpdb->get_results("SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
+        
+        // Get employees with their location assignments
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name,
+            GROUP_CONCAT(DISTINCT el.location_id) as assigned_locations
+            FROM {$wpdb->prefix}rp_employees e
             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
-            WHERE e.is_active = 1 ORDER BY u.display_name");
+            LEFT JOIN {$wpdb->prefix}rp_employee_locations el ON e.id = el.employee_id
+            WHERE e.is_active = 1
+            GROUP BY e.id
+            ORDER BY u.display_name");
+        
         $shifts = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_shifts WHERE is_active = 1 ORDER BY name");
         
         $current_location = isset($_GET['location']) ? intval($_GET['location']) : ($locations[0]->id ?? 1);
         $current_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : current_time('Y-m');
+        
+        // Get availability for current month and location
+        $start_date = $current_month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        $availability = $wpdb->get_results($wpdb->prepare(
+            "SELECT a.*, e.id as employee_id
+            FROM {$wpdb->prefix}rp_availability a
+            LEFT JOIN {$wpdb->prefix}rp_employees e ON a.employee_id = e.id
+            WHERE a.work_date BETWEEN %s AND %s AND a.location_id = %d AND a.is_available = 1",
+            $start_date, $end_date, $current_location
+        ));
+        
+        // Index availability by employee_id and date for easy lookup
+        $availability_by_employee = [];
+        foreach ($availability as $a) {
+            $availability_by_employee[$a->employee_id][$a->work_date] = $a;
+        }
         
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/schedules.php';
     }
@@ -296,12 +322,14 @@ class Admin {
                 $user_id = intval($_POST['user_id']);
                 $phone = sanitize_text_field($_POST['phone']);
                 $is_admin = isset($_POST['is_admin']) ? 1 : 0;
+                $is_fixed = isset($_POST['is_fixed']) ? 1 : 0;
                 $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
                 
                 $wpdb->insert($wpdb->prefix . 'rp_employees', [
                     'user_id' => $user_id,
                     'phone' => $phone,
-                    'is_admin' => $is_admin
+                    'is_admin' => $is_admin,
+                    'is_fixed' => $is_fixed
                 ]);
                 $employee_id = $wpdb->insert_id;
                 
@@ -320,11 +348,13 @@ class Admin {
                 $id = intval($_POST['employee_id']);
                 $phone = sanitize_text_field($_POST['phone']);
                 $is_admin = isset($_POST['is_admin']) ? 1 : 0;
+                $is_fixed = isset($_POST['is_fixed']) ? 1 : 0;
                 $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
                 
                 $wpdb->update($wpdb->prefix . 'rp_employees', [
                     'phone' => $phone,
-                    'is_admin' => $is_admin
+                    'is_admin' => $is_admin,
+                    'is_fixed' => $is_fixed
                 ], ['id' => $id]);
                 
                 // Update locations

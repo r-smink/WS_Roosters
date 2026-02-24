@@ -26,6 +26,8 @@
                 <option value="deactivate">Deactiveren</option>
                 <option value="make_admin">Admin maken</option>
                 <option value="remove_admin">Admin verwijderen</option>
+                <option value="make_fixed">Vaste medewerker maken</option>
+                <option value="remove_fixed">Vaste medewerker verwijderen</option>
             </select>
             <button type="button" class="button" id="apply-bulk-action" disabled>Toepassen</button>
             <span id="bulk-selected-count" style="margin-left:10px;color:#666;"></span>
@@ -51,11 +53,11 @@
                     <td><?php echo esc_html($employee->display_name); ?></td>
                     <td><?php echo esc_html($employee->user_email); ?></td>
                     <td><?php echo esc_html($employee->phone); ?></td>
-                    <td><?php echo esc_html($employee->locations ?: 'Geen'); ?></td>
-                    <td><?php echo $employee->is_admin ? 'Admin' : 'Medewerker'; ?></td>
+                    <td><?php echo $employee->locations ?: 'Geen'; ?></td>
+                    <td><?php echo $employee->is_admin ? 'Admin' : 'Medewerker'; ?><?php echo $employee->is_fixed ? ' <span title="Vaste medewerker">⭐</span>' : ''; ?></td>
                     <td><?php echo $employee->is_active ? 'Actief' : 'Inactief'; ?></td>
                     <td>
-                        <button type="button" class="button" onclick="editEmployee(<?php echo $employee->id; ?>, '<?php echo esc_js($employee->phone); ?>', <?php echo $employee->is_admin; ?>)" <?php echo $employee->is_active ? '' : 'disabled'; ?>>Bewerken</button>
+                        <button type="button" class="button" onclick="editEmployee(<?php echo $employee->id; ?>, '<?php echo esc_js($employee->phone); ?>', <?php echo $employee->is_admin; ?>, <?php echo $employee->is_fixed; ?>)" <?php echo $employee->is_active ? '' : 'disabled'; ?>>Bewerken</button>
                         <form method="post" style="display:inline;">
                             <?php wp_nonce_field('rp_admin_action'); ?>
                             <input type="hidden" name="rp_action" value="toggle_employee">
@@ -103,6 +105,13 @@
                     </td>
                 </tr>
                 <tr>
+                    <th><label for="is_fixed">Vaste Medewerker</label></th>
+                    <td>
+                        <input type="checkbox" name="is_fixed" id="is_fixed" value="1">
+                        <label for="is_fixed">Vaste medewerker (geen beschikbaarheid nodig, alleen voor vrij vragen)</label>
+                    </td>
+                </tr>
+                <tr>
                     <th><label>Locaties</label></th>
                     <td>
                         <?php foreach ($locations as $location): ?>
@@ -140,6 +149,13 @@
                 </td>
             </tr>
             <tr>
+                <th><label for="edit_is_fixed">Vaste Medewerker</label></th>
+                <td>
+                    <input type="checkbox" name="is_fixed" id="edit_is_fixed" value="1">
+                    <label for="edit_is_fixed">Vaste medewerker (geen beschikbaarheid nodig, alleen voor vrij vragen)</label>
+                </td>
+            </tr>
+            <tr>
                 <th><label>Locaties</label></th>
                 <td>
                     <?php foreach ($locations as $location): ?>
@@ -159,10 +175,11 @@
 </div>
 
 <script>
-function editEmployee(id, phone, isAdmin) {
+function editEmployee(id, phone, isAdmin, isFixed) {
     document.getElementById('edit_employee_id').value = id;
     document.getElementById('edit_phone').value = phone;
     document.getElementById('edit_is_admin').checked = isAdmin == 1;
+    document.getElementById('edit_is_fixed').checked = isFixed == 1;
     document.getElementById('edit-employee-modal').style.display = 'block';
 }
 
@@ -216,6 +233,8 @@ jQuery(document).ready(function($) {
             if (action === 'deactivate') updates[id].is_active = 0;
             if (action === 'make_admin') updates[id].is_admin = 1;
             if (action === 'remove_admin') updates[id].is_admin = 0;
+            if (action === 'make_fixed') updates[id].is_fixed = 1;
+            if (action === 'remove_fixed') updates[id].is_fixed = 0;
         });
         
         // Send AJAX request

@@ -51,6 +51,16 @@
                         </label>
                     </td>
                 </tr>
+                <tr>
+                    <th><label for="rp_enable_worked_hours">Gewerkte uren bijhouden</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_enable_worked_hours" name="rooster_planner_enable_worked_hours" value="1" <?php checked(get_option('rooster_planner_enable_worked_hours', 0)); ?>>
+                            Activeer het invullen van gewerkte uren per shift
+                        </label>
+                        <p class="description">Medewerkers en admins kunnen werkelijke start- en eindtijden invoeren.</p>
+                    </td>
+                </tr>
             </table>
             
             <p class="submit">

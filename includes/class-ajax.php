@@ -61,6 +61,17 @@ class Ajax {
             $data['notes'] = sanitize_textarea_field($_POST['notes']);
         }
         
+        // Handle worked hours fields
+        if (!empty($_POST['actual_start_time'])) {
+            $data['actual_start_time'] = sanitize_text_field($_POST['actual_start_time']);
+        }
+        if (!empty($_POST['actual_end_time'])) {
+            $data['actual_end_time'] = sanitize_text_field($_POST['actual_end_time']);
+        }
+        if (isset($_POST['break_minutes'])) {
+            $data['break_minutes'] = intval($_POST['break_minutes']);
+        }
+        
         $schedule_id = !empty($_POST['schedule_id']) ? intval($_POST['schedule_id']) : 0;
         
         if ($schedule_id) {
@@ -153,6 +164,11 @@ class Ajax {
         if (!current_user_can('manage_options') && $schedule->employee_id != ($current_employee ? $current_employee->id : 0)) {
             wp_send_json_error('Geen toegang');
         }
+        
+        // Ensure worked hours fields are included in response
+        $schedule->actual_start_time = $schedule->actual_start_time ?? '';
+        $schedule->actual_end_time = $schedule->actual_end_time ?? '';
+        $schedule->break_minutes = $schedule->break_minutes ?? 0;
         
         wp_send_json_success(['schedule' => $schedule]);
     }

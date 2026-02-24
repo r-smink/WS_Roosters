@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.2.0
+ * Version: 1.3.2
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.2.0');
+define('ROOSTER_PLANNER_VERSION', '1.3.2');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -69,10 +69,11 @@ function rooster_planner_activate() {
         user_id bigint(20) NOT NULL,
         phone varchar(20),
         is_admin tinyint(1) DEFAULT 0,
+        is_fixed tinyint(1) DEFAULT 0 COMMENT 'Vaste medewerker - geen beschikbaarheid nodig alleen voor vrij vragen',
         is_active tinyint(1) DEFAULT 1,
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        UNIQUE KEY user_id (user_id)
+        KEY user_id (user_id)
     ) $charset_collate;";
 
     // Employee locations (many-to-many)
@@ -93,6 +94,9 @@ function rooster_planner_activate() {
         work_date date NOT NULL,
         start_time time,
         end_time time,
+        actual_start_time time DEFAULT NULL,
+        actual_end_time time DEFAULT NULL,
+        break_minutes int(11) DEFAULT 0,
         status enum('scheduled','confirmed','completed','cancelled','swapped') DEFAULT 'scheduled',
         notes text,
         created_by bigint(20) NOT NULL,
@@ -208,6 +212,45 @@ function rooster_planner_activate() {
 
     add_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
     add_option('rooster_planner_demo_data_imported', false);
+    
+    // Run database upgrades
+    rooster_planner_run_upgrades();
+}
+
+/**
+ * Run database upgrades for existing installations
+ */
+function rooster_planner_run_upgrades() {
+    global $wpdb;
+    $installed_version = get_option('rooster_planner_version', '1.0.0');
+    
+    // Add worked hours columns to schedules table (version 1.3.0+)
+    if (version_compare($installed_version, '1.3.0', '<')) {
+        // Check if columns exist
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_schedules");
+        
+        if (!in_array('actual_start_time', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN actual_start_time time DEFAULT NULL AFTER end_time");
+        }
+        if (!in_array('actual_end_time', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN actual_end_time time DEFAULT NULL AFTER actual_start_time");
+        }
+        if (!in_array('break_minutes', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN break_minutes int(11) DEFAULT 0 AFTER actual_end_time");
+        }
+    }
+    
+    // Add is_fixed column to employees table (version 1.3.1+)
+    if (version_compare($installed_version, '1.3.1', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('is_fixed', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN is_fixed tinyint(1) DEFAULT 0 AFTER is_admin");
+        }
+    }
+    
+    // Update version
+    update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
 }
 
 /**
@@ -282,6 +325,12 @@ add_action('plugins_loaded', 'rooster_planner_init');
 function rooster_planner_init() {
     load_plugin_textdomain('roosterplanner', false, dirname(plugin_basename(__FILE__)) . '/languages/');
     
+    // Run database upgrades for existing installations
+    rooster_planner_run_upgrades();
+    
+    // Register settings
+    add_action('admin_init', 'rooster_planner_register_settings');
+    
     // Include required files
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-admin.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-frontend.php';
@@ -293,6 +342,14 @@ function rooster_planner_init() {
     new RoosterPlanner\Frontend();
     new RoosterPlanner\Ajax();
     new RoosterPlanner\Notifications();
+}
+
+function rooster_planner_register_settings() {
+    register_setting('rooster_planner_options', 'rooster_planner_deadline_day');
+    register_setting('rooster_planner_options', 'rooster_planner_reminder_day');
+    register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
+    register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
+    register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
 }
 
 // Enqueue admin assets
