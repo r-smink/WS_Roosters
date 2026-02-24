@@ -82,7 +82,7 @@ class Notifications {
                     wp_mail($emp->user_email, 'Herinnering: Beschikbaarheid doorgeven',
                         "Hallo {$emp->display_name}," .
                         "Dit is een vriendelijke herinnering om je beschikbaarheid door te geven voor {$next_month}." .
-                        "Deadline: {$deadline}\n\n" .
+                        "Deadline: {$deadline}" .
                         "Ga naar de app om je beschikbaarheid in te vullen." .
                         "Groet," .
                         get_bloginfo('name')
