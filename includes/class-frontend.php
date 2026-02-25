@@ -192,7 +192,14 @@ class Frontend {
             "SELECT * FROM {$wpdb->prefix}rp_availability 
             WHERE employee_id = %d AND location_id = %d AND work_date LIKE %s",
             $employee->id, $location_id, $target_month . '%'
-        ), OBJECT_K);
+        ));
+        
+        // Re-index by date for easier lookup
+        $existing_by_date = [];
+        foreach ($existing_availability as $avail) {
+            $existing_by_date[$avail->work_date] = $avail;
+        }
+        $existing_availability = $existing_by_date;
         
         // Build calendar for month
         $calendar = $this->build_availability_calendar($target_month, $existing_availability, $shifts);

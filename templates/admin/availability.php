@@ -155,7 +155,7 @@ function changeMonth(month) {
 .rp-availability-table-wrapper {
     overflow-x: auto;
     max-height: 600px;
-    margin-left: 200px; /* Space for sticky column */
+    margin-left: 280px; /* Space for sticky column */
 }
 .rp-availability-table {
     min-width: max-content;
@@ -173,12 +173,16 @@ function changeMonth(month) {
     left: 0;
     background: #fff;
     z-index: 100;
-    min-width: 200px;
-    width: 200px;
-    max-width: 200px;
+    min-width: 280px;
+    width: 280px;
+    max-width: 280px;
     text-align: left;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
     border-right: 2px solid #e5e7eb;
+    padding: 8px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .rp-sticky-col::after {
     content: '';
@@ -196,7 +200,7 @@ function changeMonth(month) {
 .rp-availability-table th.rp-sticky-col,
 .rp-availability-table td.rp-sticky-col {
     position: fixed;
-    left: 20px; /* Account for admin menu */
+    left: 180px; /* Account for admin menu */
 }
 @media screen and (max-width: 782px) {
     .rp-availability-table th.rp-sticky-col,
