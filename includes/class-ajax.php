@@ -956,6 +956,9 @@ class Ajax {
             'push_notifications' => $enabled
         ], ['id' => $employee->id]);
         
+        wp_send_json_success(['enabled' => $enabled]);
+    }
+    
     /**
      * Auto-schedule shifts for a month based on availability and contract hours
      */
