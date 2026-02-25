@@ -338,6 +338,87 @@ function rooster_planner_run_upgrades() {
     
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
+    
+    // Failsafe: Always ensure required columns exist regardless of version
+    $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+    
+    if (!in_array('contract_hours', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0 AFTER push_notifications");
+    }
+    if (!in_array('job_role', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL AFTER contract_hours");
+    }
+    if (!in_array('ical_token', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL AFTER is_active");
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
+    }
+}
+
+/**
+ * Create custom WordPress roles for Rooster Planner
+ */
+function rooster_planner_create_roles() {
+    // Planner role - can manage schedules, employees, locations
+    add_role('planner', 'Planner', [
+        'read' => true,
+        'manage_rooster_planner' => true,
+        'rp_view_schedules' => true,
+        'rp_edit_schedules' => true,
+        'rp_view_employees' => true,
+        'rp_edit_employees' => true,
+        'rp_view_locations' => true,
+        'rp_edit_locations' => true,
+        'rp_view_reports' => true,
+        'rp_view_swaps' => true,
+        'rp_process_swaps' => true,
+        'rp_view_timeoff' => true,
+        'rp_process_timeoff' => true,
+        'rp_finalize_months' => true,
+    ]);
+    
+    // Medewerker role - can only view their own schedule and submit availability
+    add_role('medewerker', 'Medewerker', [
+        'read' => true,
+        'rp_view_own_schedule' => true,
+        'rp_submit_availability' => true,
+        'rp_request_swap' => true,
+        'rp_request_timeoff' => true,
+        'rp_view_chat' => true,
+        'rp_send_chat' => true,
+    ]);
+    
+    // Also add capabilities to administrator
+    $admin = get_role('administrator');
+    if ($admin) {
+        $admin->add_cap('manage_rooster_planner');
+        $admin->add_cap('rp_view_schedules');
+        $admin->add_cap('rp_edit_schedules');
+        $admin->add_cap('rp_view_employees');
+        $admin->add_cap('rp_edit_employees');
+        $admin->add_cap('rp_view_locations');
+        $admin->add_cap('rp_edit_locations');
+        $admin->add_cap('rp_view_reports');
+        $admin->add_cap('rp_view_swaps');
+        $admin->add_cap('rp_process_swaps');
+        $admin->add_cap('rp_view_timeoff');
+        $admin->add_cap('rp_process_timeoff');
+        $admin->add_cap('rp_finalize_months');
+        $admin->add_cap('rp_view_own_schedule');
+        $admin->add_cap('rp_submit_availability');
+        $admin->add_cap('rp_request_swap');
+        $admin->add_cap('rp_request_timeoff');
+        $admin->add_cap('rp_view_chat');
+        $admin->add_cap('rp_send_chat');
+    }
+}
+
+/**
+ * Remove custom roles on plugin deactivation
+ */
+register_deactivation_hook(__FILE__, 'rooster_planner_deactivate');
+function rooster_planner_deactivate() {
+    remove_role('planner');
+    remove_role('medewerker');
 }
 
 /**
@@ -418,6 +499,9 @@ function rooster_planner_init() {
     
     // Run database upgrades for existing installations
     rooster_planner_run_upgrades();
+    
+    // Create custom roles
+    rooster_planner_create_roles();
     
     // Register settings
     add_action('admin_init', 'rooster_planner_register_settings');
