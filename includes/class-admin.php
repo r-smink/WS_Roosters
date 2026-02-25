@@ -191,12 +191,18 @@ class Admin {
         global $wpdb;
         
         $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
-        $employees = $wpdb->get_results("SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
-            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
-            WHERE e.is_active = 1 ORDER BY u.display_name");
-        
         $current_month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m', strtotime('+1 month'));
         $current_location = isset($_GET['location']) ? intval($_GET['location']) : ($locations[0]->id ?? 1);
+        
+        // Get employees assigned to the selected location only
+        $employees = $wpdb->get_results($wpdb->prepare(
+            "SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            INNER JOIN {$wpdb->prefix}rp_employee_locations el ON e.id = el.employee_id
+            WHERE e.is_active = 1 AND el.location_id = %d
+            ORDER BY u.display_name",
+            $current_location
+        ));
         
         // Get availability for selected month and location
         $start_date = $current_month . '-01';
