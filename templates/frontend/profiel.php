@@ -24,6 +24,14 @@
                 <p><?php echo $employee->phone ? esc_html($employee->phone) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
             </div>
             <div class="rp-profile-field">
+                <label>Functie</label>
+                <p><?php echo $employee->job_role ? esc_html($employee->job_role) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
+            </div>
+            <div class="rp-profile-field">
+                <label>Contracturen</label>
+                <p><?php echo $employee->contract_hours ? esc_html($employee->contract_hours) . ' uur/week' : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
+            </div>
+            <div class="rp-profile-field">
                 <label>Rol</label>
                 <p><?php echo $employee->is_admin ? '👑 Administrator' : '👤 Medewerker'; ?></p>
             </div>
@@ -54,14 +62,13 @@
             
             <div class="rp-preference-field">
                 <label>Email Notificaties</label>
-                <div class="rp-notification-toggle">
-                    <label class="rp-toggle-label">
+                <div class="rp-checkbox-field">
+                    <label class="rp-checkbox-label">
                         <input type="checkbox" id="rp-email-notifications" <?php checked($employee->email_notifications, 1); ?> onchange="toggleEmailNotifications(this)">
-                        <span class="rp-toggle-slider"></span>
-                        <span class="rp-toggle-text">Ontvang email notificaties</span>
+                        <span>Ontvang email notificaties voor diensten, ruilverzoeken en belangrijke mededelingen</span>
                     </label>
                 </div>
-                <p class="rp-description">Schakel in om email notificaties te ontvangen voor diensten, ruilverzoeken en belangrijke mededelingen.</p>
+                <p class="rp-description">Schakel in om email notificaties te ontvangen.</p>
             </div>
             
             <div class="rp-preference-field">
@@ -332,6 +339,12 @@ document.addEventListener('DOMContentLoaded', function() {
 .rp-toggle-label input[type="checkbox"]:checked + .rp-toggle-slider { background: #4F46E5; }
 .rp-toggle-label input[type="checkbox"]:checked + .rp-toggle-slider::after { transform: translateX(20px); }
 .rp-toggle-text { font-size: 14px; color: #374151; white-space: nowrap; }
+
+/* Checkbox Styles */
+.rp-checkbox-field { margin-top: 8px; }
+.rp-checkbox-label { display: flex !important; align-items: flex-start !important; cursor: pointer; gap: 10px; flex-direction: row !important; }
+.rp-checkbox-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin-top: 2px; flex-shrink: 0; }
+.rp-checkbox-label span { font-size: 14px; color: #374151; text-transform: none !important; font-weight: 400 !important; line-height: 1.5; }
 
 /* PWA Notifications */
 .rp-pwa-notifications { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

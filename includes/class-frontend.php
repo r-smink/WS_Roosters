@@ -136,6 +136,9 @@ class Frontend {
             $schedules = $this->get_personal_schedules($employee->id, $current_month);
         }
         
+        // Check if month is finalized for this location
+        $is_finalized = $this->is_month_finalized($location_id, $current_month);
+        
         // Build calendar data
         $calendar = $this->build_calendar($current_month, $schedules, $view, $location_id);
         
@@ -546,5 +549,14 @@ class Frontend {
             wp_redirect(home_url('/medewerker-dashboard/'));
             exit;
         }
+    }
+    
+    private function is_month_finalized($location_id, $month) {
+        global $wpdb;
+        
+        return $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_final_schedules WHERE location_id = %d AND month = %s",
+            $location_id, $month
+        )) > 0;
     }
 }

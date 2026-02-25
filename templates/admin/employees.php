@@ -41,6 +41,8 @@
                     <th>Email</th>
                     <th>Telefoon</th>
                     <th>Locaties</th>
+                    <th>Contracturen</th>
+                    <th>Functie</th>
                     <th>Rol</th>
                     <th>Status</th>
                     <th>Acties</th>
@@ -54,10 +56,12 @@
                     <td><?php echo esc_html($employee->user_email); ?></td>
                     <td><?php echo esc_html($employee->phone); ?></td>
                     <td><?php echo $employee->locations ?: 'Geen'; ?></td>
+                    <td><?php echo $employee->contract_hours ? esc_html($employee->contract_hours) . ' uur' : '-'; ?></td>
+                    <td><?php echo $employee->job_role ? esc_html($employee->job_role) : '-'; ?></td>
                     <td><?php echo $employee->is_admin ? 'Admin' : 'Medewerker'; ?><?php echo $employee->is_fixed ? ' <span title="Vaste medewerker">⭐</span>' : ''; ?></td>
                     <td><?php echo $employee->is_active ? 'Actief' : 'Inactief'; ?></td>
                     <td>
-                        <button type="button" class="button" onclick="editEmployee(<?php echo $employee->id; ?>, '<?php echo esc_js($employee->phone); ?>', <?php echo $employee->is_admin; ?>, <?php echo $employee->is_fixed; ?>)" <?php echo $employee->is_active ? '' : 'disabled'; ?>>Bewerken</button>
+                        <button type="button" class="button" onclick="editEmployee(<?php echo $employee->id; ?>, '<?php echo esc_js($employee->phone); ?>', <?php echo $employee->is_admin; ?>, <?php echo $employee->is_fixed; ?>, <?php echo intval($employee->contract_hours); ?>, '<?php echo esc_js($employee->job_role); ?>')" <?php echo $employee->is_active ? '' : 'disabled'; ?>>Bewerken</button>
                         <form method="post" style="display:inline;">
                             <?php wp_nonce_field('rp_admin_action'); ?>
                             <input type="hidden" name="rp_action" value="toggle_employee">
@@ -96,6 +100,14 @@
                 <tr>
                     <th><label for="phone">Telefoonnummer</label></th>
                     <td><input type="tel" name="phone" id="phone" class="regular-text"></td>
+                </tr>
+                <tr>
+                    <th><label for="contract_hours">Contracturen per week</label></th>
+                    <td><input type="number" name="contract_hours" id="contract_hours" class="regular-text" min="0" max="168" placeholder="bijv. 32"> uur</td>
+                </tr>
+                <tr>
+                    <th><label for="job_role">Functie/Rol</label></th>
+                    <td><input type="text" name="job_role" id="job_role" class="regular-text" placeholder="bijv. Kassa, Bakery, Teamleider"></td>
                 </tr>
                 <tr>
                     <th><label for="is_admin">Is Admin</label></th>
@@ -142,6 +154,14 @@
                 <td><input type="tel" name="phone" id="edit_phone" class="regular-text"></td>
             </tr>
             <tr>
+                <th><label for="edit_contract_hours">Contracturen per week</label></th>
+                <td><input type="number" name="contract_hours" id="edit_contract_hours" class="regular-text" min="0" max="168"> uur</td>
+            </tr>
+            <tr>
+                <th><label for="edit_job_role">Functie/Rol</label></th>
+                <td><input type="text" name="job_role" id="edit_job_role" class="regular-text"></td>
+            </tr>
+            <tr>
                 <th><label for="edit_is_admin">Is Admin</label></th>
                 <td>
                     <input type="checkbox" name="is_admin" id="edit_is_admin" value="1">
@@ -175,11 +195,13 @@
 </div>
 
 <script>
-function editEmployee(id, phone, isAdmin, isFixed) {
+function editEmployee(id, phone, isAdmin, isFixed, contractHours, jobRole) {
     document.getElementById('edit_employee_id').value = id;
     document.getElementById('edit_phone').value = phone;
     document.getElementById('edit_is_admin').checked = isAdmin == 1;
     document.getElementById('edit_is_fixed').checked = isFixed == 1;
+    document.getElementById('edit_contract_hours').value = contractHours || '';
+    document.getElementById('edit_job_role').value = jobRole || '';
     document.getElementById('edit-employee-modal').style.display = 'block';
 }
 

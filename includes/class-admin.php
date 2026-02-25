@@ -323,13 +323,17 @@ class Admin {
                 $phone = sanitize_text_field($_POST['phone']);
                 $is_admin = isset($_POST['is_admin']) ? 1 : 0;
                 $is_fixed = isset($_POST['is_fixed']) ? 1 : 0;
+                $contract_hours = isset($_POST['contract_hours']) ? intval($_POST['contract_hours']) : 0;
+                $job_role = sanitize_text_field($_POST['job_role'] ?? '');
                 $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
                 
                 $wpdb->insert($wpdb->prefix . 'rp_employees', [
                     'user_id' => $user_id,
                     'phone' => $phone,
                     'is_admin' => $is_admin,
-                    'is_fixed' => $is_fixed
+                    'is_fixed' => $is_fixed,
+                    'contract_hours' => $contract_hours,
+                    'job_role' => $job_role
                 ]);
                 $employee_id = $wpdb->insert_id;
                 
@@ -349,12 +353,16 @@ class Admin {
                 $phone = sanitize_text_field($_POST['phone']);
                 $is_admin = isset($_POST['is_admin']) ? 1 : 0;
                 $is_fixed = isset($_POST['is_fixed']) ? 1 : 0;
+                $contract_hours = isset($_POST['contract_hours']) ? intval($_POST['contract_hours']) : 0;
+                $job_role = sanitize_text_field($_POST['job_role'] ?? '');
                 $locations = isset($_POST['employee_locations']) ? array_map('intval', $_POST['employee_locations']) : [];
                 
                 $wpdb->update($wpdb->prefix . 'rp_employees', [
                     'phone' => $phone,
                     'is_admin' => $is_admin,
-                    'is_fixed' => $is_fixed
+                    'is_fixed' => $is_fixed,
+                    'contract_hours' => $contract_hours,
+                    'job_role' => $job_role
                 ], ['id' => $id]);
                 
                 // Update locations

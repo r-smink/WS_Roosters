@@ -28,6 +28,10 @@
             </a>
         </div>
         <?php endif; ?>
+        
+        <?php if (!$is_finalized && $view !== 'all'): ?>
+        <span class="rp-not-finalized-badge">⏳ Rooster nog niet definitief</span>
+        <?php endif; ?>
     </div>
     
     <?php if ($view === 'all' && $employee->is_admin): ?>
@@ -43,6 +47,17 @@
     </div>
     <?php endif; ?>
     
+    <?php if (!$is_finalized && $view !== 'all'): ?>
+    <!-- Month not finalized - show message instead of calendar -->
+    <div class="rp-not-finalized-message">
+        <div class="rp-message-content">
+            <h3>⏳ Rooster nog niet definitief</h3>
+            <p>Het rooster voor <?php echo date('F Y', strtotime($current_month . '-01')); ?> is nog niet definitief gemaakt door de planner.</p>
+            <p>Je ontvangt automatisch een notificatie zodra je rooster beschikbaar is.</p>
+        </div>
+    </div>
+    <?php else: ?>
+    <!-- Show calendar with schedules -->
     <div class="rp-calendar-wrapper">
         <div class="rp-calendar-header">
             <div class="rp-weekday">Zo</div>
@@ -95,6 +110,7 @@
             <?php endforeach; ?>
         </div>
     </div>
+    <?php endif; ?>
     
     <?php if ($view === 'personal' && get_option('rooster_planner_enable_worked_hours', 0)): ?>
     <?php 
@@ -511,6 +527,39 @@
 }
 .rp-form-actions .rp-btn {
     flex: 1;
+}
+
+/* Not Finalized Styles */
+.rp-not-finalized-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #fffbeb;
+    color: #d97706;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid #fcd34d;
+}
+.rp-not-finalized-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 40px;
+    text-align: center;
+}
+.rp-message-content h3 {
+    color: #d97706;
+    font-size: 20px;
+    margin: 0 0 15px 0;
+}
+.rp-message-content p {
+    color: #6b7280;
+    margin: 8px 0;
 }
 </style>
 

@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.7');
+define('ROOSTER_PLANNER_VERSION', '1.3.9');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -297,6 +297,31 @@ function rooster_planner_run_upgrades() {
         if (!in_array('push_notifications', $columns)) {
             $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1 AFTER email_notifications");
         }
+    }
+    
+    // Add contract_hours and job_role to employees table (version 1.3.8+)
+    if (version_compare($installed_version, '1.3.8', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('contract_hours', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0 AFTER push_notifications");
+        }
+        if (!in_array('job_role', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL AFTER contract_hours");
+        }
+    }
+    
+    // Create final_schedules table (version 1.3.9+)
+    if (version_compare($installed_version, '1.3.9', '<')) {
+        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}rp_final_schedules (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            location_id bigint(20) NOT NULL,
+            month varchar(7) NOT NULL,
+            finalized_at datetime DEFAULT CURRENT_TIMESTAMP,
+            finalized_by bigint(20) DEFAULT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_location_month (location_id, month)
+        ) {$charset_collate};");
     }
     
     // Update version
