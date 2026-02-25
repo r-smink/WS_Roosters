@@ -40,6 +40,7 @@ class Ajax {
         add_action('wp_ajax_rp_move_schedule', [$this, 'move_schedule']);
         add_action('wp_ajax_rp_finalize_month', [$this, 'finalize_month']);
         add_action('wp_ajax_rp_regenerate_ical_token', [$this, 'regenerate_ical_token']);
+        add_action('wp_ajax_rp_clear_calendar', [$this, 'clear_calendar']);
     }
     
     public function save_schedule() {
@@ -1136,20 +1137,30 @@ class Ajax {
                     $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing_by_date_shift[$date][$shift->id]->id]);
                 }
                 
+                // Determine start and end times - use custom times from availability if provided
+                $emp_availability = $availability_by_employee[$selected_employee->id][$date] ?? null;
+                if ($emp_availability && !empty($emp_availability->custom_start) && !empty($emp_availability->custom_end)) {
+                    $start_time = $emp_availability->custom_start;
+                    $end_time = $emp_availability->custom_end;
+                } else {
+                    $start_time = $shift->start_time;
+                    $end_time = $shift->end_time;
+                }
+                
                 // Schedule the shift
                 $wpdb->insert($wpdb->prefix . 'rp_schedules', [
                     'employee_id' => $selected_employee->id,
                     'location_id' => $location_id,
                     'shift_id' => $shift->id,
                     'work_date' => $date,
-                    'start_time' => $shift->start_time,
-                    'end_time' => $shift->end_time,
+                    'start_time' => $start_time,
+                    'end_time' => $end_time,
                     'status' => 'scheduled',
                     'created_by' => get_current_user_id()
                 ]);
                 
-                // Update scheduled hours
-                $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                // Update scheduled hours using actual scheduled times
+                $shift_hours = $this->calculate_shift_hours($start_time, $end_time);
                 $scheduled_hours[$selected_employee->id] = ($scheduled_hours[$selected_employee->id] ?? 0) + $shift_hours;
                 
                 $scheduled_count++;
@@ -1402,6 +1413,53 @@ class Ajax {
         wp_send_json_success([
             'url' => $new_url,
             'message' => 'Nieuwe iCal link gegenereerd'
+        ]);
+    }
+    
+    /**
+     * Clear all schedules for a month and location
+     */
+    public function clear_calendar() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        $location_id = intval($_POST['location_id']);
+        $month = sanitize_text_field($_POST['month']);
+        
+        // Validate month format
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            wp_send_json_error('Ongeldig maandformaat');
+        }
+        
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        // Check if month is finalized
+        $is_finalized = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_final_schedules WHERE location_id = %d AND month = %s",
+            $location_id, $month
+        ));
+        
+        if ($is_finalized) {
+            wp_send_json_error('Deze maand is definitief gemaakt en kan niet worden gewijzigd');
+        }
+        
+        // Mark all schedules as cancelled for this month and location
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->prefix}rp_schedules 
+            SET status = 'cancelled' 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s",
+            $location_id, $start_date, $end_date
+        ));
+        
+        wp_send_json_success([
+            'deleted' => $result,
+            'message' => $result . ' diensten verwijderd'
         ]);
     }
 }

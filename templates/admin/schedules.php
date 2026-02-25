@@ -23,6 +23,10 @@
                 🤖 Auto-planning
             </button>
             
+            <button type="button" class="button button-link-delete" onclick="clearCalendar()" style="margin-left:10px;">
+                🗑️ Kalender Leegmaken
+            </button>
+            
             <?php
             // Check if month is already finalized
             global $wpdb;
@@ -899,6 +903,47 @@ function finalizeMonth() {
         },
         error: function() {
             alert('Er is een fout opgetreden.');
+        }
+    });
+}
+
+// Clear calendar function
+function clearCalendar() {
+    const month = document.getElementById('month-filter').value;
+    const locationId = document.getElementById('location-filter').value;
+    
+    if (!confirm('⚠️ WAARSCHUWING\n\nDit verwijdert ALLE diensten voor ' + month + '!\n\nDeze actie kan niet ongedaan worden gemaakt.\n\nWeet je zeker dat je door wilt gaan?')) {
+        return;
+    }
+    
+    if (!confirm('Dubbele check: Alle diensten voor deze maand en locatie worden verwijderd.\n\nZeker weten?')) {
+        return;
+    }
+    
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_clear_calendar',
+            nonce: rpAjax.nonce,
+            location_id: locationId,
+            month: month
+        },
+        beforeSend: function() {
+            jQuery('button[onclick="clearCalendar()"]').prop('disabled', true).text('Bezig met leegmaken...');
+        },
+        success: function(response) {
+            if (response.success) {
+                alert('Kalender succesvol geleegd! ' + response.data.deleted + ' diensten verwijderd.');
+                location.reload();
+            } else {
+                alert('Fout: ' + response.data);
+                jQuery('button[onclick="clearCalendar()"]').prop('disabled', false).text('🗑️ Kalender Leegmaken');
+            }
+        },
+        error: function() {
+            alert('Er is een fout opgetreden.');
+            jQuery('button[onclick="clearCalendar()"]').prop('disabled', false).text('🗑️ Kalender Leegmaken');
         }
     });
 }
