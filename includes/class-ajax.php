@@ -1050,13 +1050,143 @@ class Ajax {
                 continue;
             }
             
+            // First pass: assign employees to their preferred shifts
+            $preferred_assignments = [];
+            foreach ($employees as $emp) {
+                // Check if employee has availability with shift preference for this date
+                if (!isset($availability_by_employee[$emp->id][$date])) {
+                    continue;
+                }
+                
+                $avail = $availability_by_employee[$emp->id][$date];
+                
+                // Skip if no shift preference
+                if (empty($avail->shift_preference)) {
+                    continue;
+                }
+                
+                // Check if preferred shift exists for this location
+                $preferred_shift = null;
+                foreach ($shifts as $shift) {
+                    if ($shift->id == $avail->shift_preference) {
+                        $preferred_shift = $shift;
+                        break;
+                    }
+                }
+                
+                if (!$preferred_shift) {
+                    continue;
+                }
+                
+                // Check if shift is already scheduled for this date
+                if (!$overwrite_existing && isset($existing_by_date_shift[$date][$preferred_shift->id])) {
+                    continue;
+                }
+                
+                // Check if employee is already scheduled for this date
+                $already_scheduled = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                    WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
+                    $emp->id, $date
+                ));
+                
+                if ($already_scheduled > 0 && !$overwrite_existing) {
+                    continue;
+                }
+                
+                // Calculate shift hours using custom times if provided
+                if (!empty($avail->custom_start) && !empty($avail->custom_end)) {
+                    $shift_hours = $this->calculate_shift_hours($avail->custom_start, $avail->custom_end);
+                } else {
+                    $shift_hours = $this->calculate_shift_hours($preferred_shift->start_time, $preferred_shift->end_time);
+                }
+                
+                // Check contract hours
+                if ($respect_contract_hours && $emp->contract_hours > 0) {
+                    $current_hours = $scheduled_hours[$emp->id] ?? 0;
+                    if (($current_hours + $shift_hours) > $emp->contract_hours) {
+                        continue;
+                    }
+                }
+                
+                // Check for time conflicts
+                $conflict = $wpdb->get_var($wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules s
+                    LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                    WHERE s.employee_id = %d AND s.work_date = %s AND s.status != 'cancelled'
+                    AND ((sh.start_time < %s AND sh.end_time > %s) OR (sh.start_time < %s AND sh.end_time > %s)
+                    OR (sh.start_time >= %s AND sh.end_time <= %s))",
+                    $emp->id, $date, $preferred_shift->end_time, $preferred_shift->start_time, 
+                    $preferred_shift->end_time, $preferred_shift->start_time, $preferred_shift->start_time, $preferred_shift->end_time
+                ));
+                
+                if ($conflict > 0 && !$overwrite_existing) {
+                    continue;
+                }
+                
+                // Store preferred assignment
+                $preferred_assignments[] = [
+                    'employee' => $emp,
+                    'shift' => $preferred_shift,
+                    'availability' => $avail,
+                    'shift_hours' => $shift_hours
+                ];
+            }
+            
+            // Assign preferred shifts first
+            foreach ($preferred_assignments as $assignment) {
+                $emp = $assignment['employee'];
+                $shift = $assignment['shift'];
+                $avail = $assignment['availability'];
+                
+                // Double-check shift is still available
+                if (!$overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    continue;
+                }
+                
+                // If overwriting, delete existing schedule first
+                if ($overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing_by_date_shift[$date][$shift->id]->id]);
+                }
+                
+                // Determine start and end times - use custom times from availability if provided
+                if (!empty($avail->custom_start) && !empty($avail->custom_end)) {
+                    $start_time = $avail->custom_start;
+                    $end_time = $avail->custom_end;
+                } else {
+                    $start_time = $shift->start_time;
+                    $end_time = $shift->end_time;
+                }
+                
+                // Schedule the shift
+                $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+                    'employee_id' => $emp->id,
+                    'location_id' => $location_id,
+                    'shift_id' => $shift->id,
+                    'work_date' => $date,
+                    'start_time' => $start_time,
+                    'end_time' => $end_time,
+                    'status' => 'scheduled',
+                    'created_by' => get_current_user_id()
+                ]);
+                
+                // Update scheduled hours
+                $scheduled_hours[$emp->id] = ($scheduled_hours[$emp->id] ?? 0) + $assignment['shift_hours'];
+                
+                // Mark this shift as filled for this date
+                $existing_by_date_shift[$date][$shift->id] = (object)['id' => $wpdb->insert_id];
+                
+                $scheduled_count++;
+            }
+            
+            // Second pass: fill remaining shifts with employees without preference
             foreach ($shifts as $shift) {
                 // Check if shift is already scheduled for this date
                 if (!$overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
                     continue;
                 }
                 
-                // Find available employees for this shift
+                // Find available employees for this shift (without specific preference for this shift)
                 $available_employees = [];
                 
                 foreach ($employees as $emp) {
