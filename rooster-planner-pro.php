@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.6
+ * Version: 1.3.7
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.6');
+define('ROOSTER_PLANNER_VERSION', '1.3.7');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -860,4 +860,151 @@ function rooster_planner_bulk_update_shifts($updates) {
     }
     
     return $results;
+}
+
+/**
+ * Export worked hours to CSV format (Excel compatible)
+ * Columns: Datum | Medewerker1 | Medewerker2 | etc.
+ * Rows: Dates | Hours worked per employee
+ */
+add_action('admin_init', 'rooster_planner_handle_exports');
+function rooster_planner_handle_exports() {
+    if (!is_admin() || !current_user_can('manage_options')) return;
+    
+    if (isset($_GET['page']) && $_GET['page'] === 'rooster-planner-settings' && isset($_GET['export'])) {
+        $export_type = sanitize_text_field($_GET['export']);
+        
+        if ($export_type === 'worked_hours') {
+            rooster_planner_export_worked_hours();
+            exit;
+        }
+    }
+}
+
+function rooster_planner_export_worked_hours() {
+    global $wpdb;
+    
+    // Get all active employees
+    $employees = $wpdb->get_results(
+        "SELECT e.id, u.display_name, u.user_login 
+        FROM {$wpdb->prefix}rp_employees e
+        LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+        WHERE e.is_active = 1
+        ORDER BY u.display_name"
+    );
+    
+    // Get current month (default) or requested month
+    $month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : current_time('Y-m');
+    $start_date = $month . '-01';
+    $end_date = date('Y-m-t', strtotime($start_date));
+    
+    // Get all schedules with worked hours for this month
+    $schedules = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, sh.name as shift_name, u.display_name as employee_name, e.id as employee_id
+        FROM {$wpdb->prefix}rp_schedules s
+        LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+        LEFT JOIN {$wpdb->prefix}rp_employees e ON s.employee_id = e.id
+        LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+        WHERE s.work_date BETWEEN %s AND %s
+        AND s.status != 'cancelled'
+        AND e.is_active = 1
+        ORDER BY s.work_date, u.display_name",
+        $start_date, $end_date
+    ));
+    
+    // Prepare data structure: date => employee_id => hours
+    $data = [];
+    $dates = [];
+    
+    foreach ($schedules as $schedule) {
+        $date = $schedule->work_date;
+        if (!in_array($date, $dates)) {
+            $dates[] = $date;
+        }
+        
+        if (!isset($data[$date])) {
+            $data[$date] = [];
+        }
+        
+        // Calculate hours worked
+        $hours = '';
+        if ($schedule->actual_start_time && $schedule->actual_end_time) {
+            $start = strtotime($schedule->actual_start_time);
+            $end = strtotime($schedule->actual_end_time);
+            $break_minutes = intval($schedule->break_minutes);
+            $diff = $end - $start - ($break_minutes * 60);
+            $hours = round($diff / 3600, 2);
+        }
+        
+        $data[$date][$schedule->employee_id] = [
+            'hours' => $hours,
+            'shift' => $schedule->shift_name,
+            'planned_start' => $schedule->start_time,
+            'planned_end' => $schedule->end_time,
+            'actual_start' => $schedule->actual_start_time,
+            'actual_end' => $schedule->actual_end_time
+        ];
+    }
+    
+    sort($dates);
+    
+    // Generate CSV
+    $filename = 'gewerkte-uren-' . $month . '.csv';
+    
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    
+    // Add BOM for Excel UTF-8 compatibility
+    echo "\xEF\xBB\xBF";
+    
+    $output = fopen('php://output', 'w');
+    
+    // Header row with employee names
+    $header = ['Datum'];
+    $employee_map = [];
+    foreach ($employees as $emp) {
+        $header[] = $emp->display_name ?: $emp->user_login;
+        $employee_map[$emp->id] = $emp;
+    }
+    fputcsv($output, $header, ';');
+    
+    // Data rows
+    foreach ($dates as $date) {
+        $row = [date('d-m-Y', strtotime($date))];
+        
+        foreach ($employees as $emp) {
+            if (isset($data[$date][$emp->id])) {
+                $hours_data = $data[$date][$emp->id];
+                if ($hours_data['hours'] !== '') {
+                    $row[] = str_replace('.', ',', $hours_data['hours']); // Excel format
+                } else {
+                    $row[] = '-'; // Scheduled but no hours entered
+                }
+            } else {
+                $row[] = ''; // No schedule
+            }
+        }
+        
+        fputcsv($output, $row, ';');
+    }
+    
+    // Add empty row
+    fputcsv($output, [], ';');
+    
+    // Add summary row - total hours per employee
+    $summary_row = ['TOTAAL UREN'];
+    foreach ($employees as $emp) {
+        $total_hours = 0;
+        foreach ($dates as $date) {
+            if (isset($data[$date][$emp->id]) && $data[$date][$emp->id]['hours'] !== '') {
+                $total_hours += floatval($data[$date][$emp->id]['hours']);
+            }
+        }
+        $summary_row[] = $total_hours > 0 ? str_replace('.', ',', round($total_hours, 2)) : '';
+    }
+    fputcsv($output, $summary_row, ';');
+    
+    fclose($output);
 }

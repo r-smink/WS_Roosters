@@ -325,13 +325,13 @@ document.addEventListener('DOMContentLoaded', function() {
 .rp-stat-label { display: block; margin-top: 5px; color: #6b7280; font-size: 14px; }
 
 /* Toggle Switch Styles */
-.rp-toggle-label { display: flex; align-items: center; cursor: pointer; gap: 10px; }
+.rp-toggle-label { display: flex; align-items: center; cursor: pointer; gap: 12px; flex-wrap: nowrap; }
 .rp-toggle-label input[type="checkbox"] { display: none; }
-.rp-toggle-slider { position: relative; width: 44px; height: 24px; background: #d1d5db; border-radius: 12px; transition: all 0.3s; flex-shrink: 0; }
+.rp-toggle-slider { position: relative; width: 44px; height: 24px; background: #d1d5db; border-radius: 12px; transition: all 0.3s; flex-shrink: 0; flex-grow: 0; }
 .rp-toggle-slider::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: all 0.3s; }
 .rp-toggle-label input[type="checkbox"]:checked + .rp-toggle-slider { background: #4F46E5; }
 .rp-toggle-label input[type="checkbox"]:checked + .rp-toggle-slider::after { transform: translateX(20px); }
-.rp-toggle-text { font-size: 14px; color: #374151; }
+.rp-toggle-text { font-size: 14px; color: #374151; white-space: nowrap; }
 
 /* PWA Notifications */
 .rp-pwa-notifications { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

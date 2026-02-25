@@ -48,6 +48,9 @@
                 <a href="<?php echo admin_url('admin.php?page=rooster-planner-chat'); ?>" class="rp-btn rp-btn-secondary">
                     💬 Chat Bericht
                 </a>
+                <a href="<?php echo admin_url('admin.php?page=rooster-planner-availability'); ?>" class="rp-btn rp-btn-secondary">
+                    📋 Beschikbaarheid
+                </a>
             </div>
         </div>
         

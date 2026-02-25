@@ -63,8 +63,11 @@
                     <span class="rp-day-number"><?php echo $day['day']; ?></span>
                 </div>
                 <div class="rp-day-content">
-                    <?php foreach ($day['schedules'] as $schedule): ?>
-                    <div class="rp-schedule-item" style="border-left-color: <?php echo $schedule->color; ?>">
+                    <?php foreach ($day['schedules'] as $schedule): 
+                        $is_past = strtotime($schedule->work_date . ' ' . $schedule->end_time) < current_time('timestamp');
+                        $is_started = strtotime($schedule->work_date . ' ' . $schedule->start_time) < current_time('timestamp');
+                    ?>
+                    <div class="rp-schedule-item <?php echo $is_past ? 'rp-past-shift' : ''; ?>" style="border-left-color: <?php echo $schedule->color; ?>">
                         <div class="rp-schedule-time"><?php echo substr($schedule->start_time, 0, 5); ?></div>
                         <div class="rp-schedule-name"><?php echo esc_html($schedule->shift_name); ?></div>
                         <?php if ($view === 'all' && !empty($schedule->employee_name)): ?>
@@ -72,9 +75,16 @@
                         <?php endif; ?>
                         <?php if ($view === 'personal'): ?>
                         <div class="rp-schedule-actions">
+                            <?php if (!$is_started): ?>
                             <a href="<?php echo home_url('/medewerker-ruilen/?action=swap&schedule=' . $schedule->id); ?>" class="rp-link">
                                 Ruilen
                             </a>
+                            <?php endif; ?>
+                            <?php if ($is_past && get_option('rooster_planner_enable_worked_hours', 0)): ?>
+                            <button type="button" class="rp-link" onclick="openHoursModal(<?php echo $schedule->id; ?>)">
+                                <?php echo $schedule->actual_start_time ? 'Uren wijzigen' : 'Uren invullen'; ?>
+                            </button>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -86,6 +96,56 @@
         </div>
     </div>
     
+    <?php if ($view === 'personal' && get_option('rooster_planner_enable_worked_hours', 0)): ?>
+    <?php 
+    // Get completed shifts for this month
+    global $wpdb;
+    $completed_shifts = $wpdb->get_results($wpdb->prepare(
+        "SELECT s.*, sh.name as shift_name, sh.start_time as planned_start, sh.end_time as planned_end,
+        l.name as location_name
+        FROM {$wpdb->prefix}rp_schedules s
+        LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+        LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+        WHERE s.employee_id = %d AND s.work_date LIKE %s 
+        AND s.work_date < %s
+        AND s.status != 'cancelled'
+        ORDER BY s.work_date DESC",
+        $employee->id, $current_month . '%', current_time('Y-m-d')
+    ));
+    ?>
+    <?php if (!empty($completed_shifts)): ?>
+    <div class="rp-completed-shifts">
+        <h3>✅ Gewerkte Diensten - Uren Invullen</h3>
+        <div class="rp-completed-list">
+            <?php foreach ($completed_shifts as $shift): 
+                $has_hours = !empty($shift->actual_start_time) && !empty($shift->actual_end_time);
+                $shift_datetime = $shift->work_date . ' ' . $shift->planned_end;
+                $can_enter_hours = strtotime($shift_datetime) < current_time('timestamp');
+            ?>
+            <div class="rp-completed-item <?php echo $has_hours ? 'rp-hours-filled' : 'rp-hours-pending'; ?>">
+                <div class="rp-completed-info">
+                    <strong><?php echo date('d-m-Y', strtotime($shift->work_date)); ?></strong> - 
+                    <?php echo esc_html($shift->shift_name); ?>
+                    <span class="rp-location">📍 <?php echo esc_html($shift->location_name); ?></span>
+                    <span class="rp-planned">Gepland: <?php echo substr($shift->planned_start, 0, 5) . ' - ' . substr($shift->planned_end, 0, 5); ?></span>
+                    <?php if ($has_hours): ?>
+                    <span class="rp-actual">Gewerkt: <?php echo substr($shift->actual_start_time, 0, 5) . ' - ' . substr($shift->actual_end_time, 0, 5); ?></span>
+                    <?php endif; ?>
+                </div>
+                <div class="rp-completed-actions">
+                    <?php if ($can_enter_hours): ?>
+                    <button type="button" class="rp-btn rp-btn-small <?php echo $has_hours ? 'rp-btn-secondary' : 'rp-btn-primary'; ?>" onclick="openHoursModal(<?php echo $shift->id; ?>)">
+                        <?php echo $has_hours ? 'Wijzigen' : 'Uren invullen'; ?>
+                    </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+    <?php endif; ?>
+    
     <div class="rp-legend">
         <h3>Legenda</h3>
         <?php foreach ($shifts as $shift): ?>
@@ -95,6 +155,37 @@
         </span>
         <?php endforeach; ?>
     </div>
+
+<!-- Hours Input Modal -->
+<div id="rp-hours-modal" class="rp-modal" style="display:none;">
+    <div class="rp-modal-content">
+        <div class="rp-modal-header">
+            <h3>📝 Gewerkte Uren Invullen</h3>
+            <button type="button" class="rp-modal-close" onclick="closeHoursModal()">&times;</button>
+        </div>
+        <div class="rp-modal-body">
+            <form id="rp-hours-form">
+                <input type="hidden" id="hours_schedule_id" name="schedule_id">
+                <div class="rp-form-row">
+                    <label>Werkelijke starttijd:</label>
+                    <input type="time" id="hours_start_time" name="actual_start_time" required>
+                </div>
+                <div class="rp-form-row">
+                    <label>Werkelijke eindtijd:</label>
+                    <input type="time" id="hours_end_time" name="actual_end_time" required>
+                </div>
+                <div class="rp-form-row">
+                    <label>Pauze (minuten):</label>
+                    <input type="number" id="hours_break" name="break_minutes" min="0" value="0">
+                </div>
+                <div class="rp-form-actions">
+                    <button type="submit" class="rp-btn rp-btn-primary">Opslaan</button>
+                    <button type="button" class="rp-btn rp-btn-secondary" onclick="closeHoursModal()">Annuleren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <style>
 .rp-container {
@@ -288,4 +379,211 @@
         display: flex;
     }
 }
+
+/* Completed Shifts Section */
+.rp-completed-shifts {
+    margin-top: 30px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.rp-completed-shifts h3 {
+    margin: 0 0 20px;
+    font-size: 18px;
+    color: #1f2937;
+}
+.rp-completed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.rp-completed-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 4px solid #d1d5db;
+}
+.rp-completed-item.rp-hours-filled {
+    border-left-color: #10B981;
+    background: #f0fdf4;
+}
+.rp-completed-item.rp-hours-pending {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+}
+.rp-completed-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.rp-completed-info strong {
+    color: #1f2937;
+}
+.rp-completed-info .rp-location {
+    color: #6b7280;
+    font-size: 13px;
+}
+.rp-completed-info .rp-planned {
+    color: #6b7280;
+    font-size: 13px;
+}
+.rp-completed-info .rp-actual {
+    color: #059669;
+    font-size: 13px;
+    font-weight: 500;
+}
+.rp-past-shift {
+    opacity: 0.7;
+}
+.rp-past-shift .rp-schedule-time {
+    color: #6b7280;
+}
+
+/* Modal Styles */
+.rp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.rp-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+}
+.rp-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.rp-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+.rp-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+}
+.rp-modal-close:hover {
+    color: #1f2937;
+}
+.rp-modal-body {
+    padding: 20px;
+}
+.rp-form-row {
+    margin-bottom: 15px;
+}
+.rp-form-row label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #374151;
+}
+.rp-form-row input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.rp-form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+.rp-form-actions .rp-btn {
+    flex: 1;
+}
 </style>
+
+<script>
+function openHoursModal(scheduleId) {
+    document.getElementById('hours_schedule_id').value = scheduleId;
+    document.getElementById('rp-hours-modal').style.display = 'flex';
+    
+    // Load existing hours if any
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_get_schedule_data',
+            nonce: rpAjax.nonce,
+            schedule_id: scheduleId
+        },
+        success: function(response) {
+            if (response.success && response.data.schedule) {
+                var schedule = response.data.schedule;
+                if (schedule.actual_start_time) {
+                    document.getElementById('hours_start_time').value = schedule.actual_start_time.substring(0, 5);
+                }
+                if (schedule.actual_end_time) {
+                    document.getElementById('hours_end_time').value = schedule.actual_end_time.substring(0, 5);
+                }
+                if (schedule.break_minutes) {
+                    document.getElementById('hours_break').value = schedule.break_minutes;
+                }
+            }
+        }
+    });
+}
+
+function closeHoursModal() {
+    document.getElementById('rp-hours-modal').style.display = 'none';
+    document.getElementById('rp-hours-form').reset();
+}
+
+jQuery('#rp-hours-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    var formData = {
+        action: 'rp_save_schedule',
+        nonce: rpAjax.nonce,
+        schedule_id: document.getElementById('hours_schedule_id').value,
+        actual_start_time: document.getElementById('hours_start_time').value,
+        actual_end_time: document.getElementById('hours_end_time').value,
+        break_minutes: document.getElementById('hours_break').value
+    };
+    
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: formData,
+        success: function(response) {
+            if (response.success) {
+                alert('Uren succesvol opgeslagen!');
+                location.reload();
+            } else {
+                alert('Er is een fout opgetreden: ' + response.data);
+            }
+        },
+        error: function() {
+            alert('Er is een fout opgetreden bij het opslaan.');
+        }
+    });
+});
+
+// Close modal when clicking outside
+jQuery(document).on('click', '#rp-hours-modal', function(e) {
+    if (e.target === this) {
+        closeHoursModal();
+    }
+});
+</script>

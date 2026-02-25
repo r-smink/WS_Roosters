@@ -10,7 +10,7 @@
                 <tr>
                     <th><label for="rp_deadline_day">Deadline dag</label></th>
                     <td>
-                        <select id="rp_deadline_day" name="rooster_planner_options[deadline_day]">
+                        <select id="rp_deadline_day" name="rooster_planner_deadline_day">
                             <?php for ($i = 1; $i <= 31; $i++): ?>
                             <option value="<?php echo $i; ?>" <?php selected(get_option('rooster_planner_deadline_day', 15), $i); ?>>
                                 <?php echo $i; ?>e van elke maand
@@ -23,7 +23,7 @@
                 <tr>
                     <th><label for="rp_reminder_day">Herinnering dag</label></th>
                     <td>
-                        <select id="rp_reminder_day" name="rooster_planner_options[reminder_day]">
+                        <select id="rp_reminder_day" name="rooster_planner_reminder_day">
                             <?php for ($i = 1; $i <= 31; $i++): ?>
                             <option value="<?php echo $i; ?>" <?php selected(get_option('rooster_planner_reminder_day', 14), $i); ?>>
                                 <?php echo $i; ?>e van elke maand
@@ -37,7 +37,7 @@
                     <th><label for="rp_enable_dark_theme">Dark Theme</label></th>
                     <td>
                         <label>
-                            <input type="checkbox" id="rp_enable_dark_theme" name="rooster_planner_options[enable_dark_theme]" value="1" <?php checked(get_option('rooster_planner_enable_dark_theme', 1)); ?>>
+                            <input type="checkbox" id="rp_enable_dark_theme" name="rooster_planner_enable_dark_theme" value="1" <?php checked(get_option('rooster_planner_enable_dark_theme', 1)); ?>>
                             Sta medewerkers toe om dark theme te gebruiken
                         </label>
                         <p class="description">Wanneer uitgeschakeld kunnen medewerkers geen dark theme kiezen in hun profiel.</p>
@@ -47,7 +47,7 @@
                     <th><label for="rp_email_notifications">Email Notificaties</label></th>
                     <td>
                         <label>
-                            <input type="checkbox" id="rp_email_notifications" name="rooster_planner_options[email_notifications]" value="1" <?php checked(get_option('rooster_planner_email_notifications', 1)); ?>>
+                            <input type="checkbox" id="rp_email_notifications" name="rooster_planner_email_notifications" value="1" <?php checked(get_option('rooster_planner_email_notifications', 1)); ?>>
                             Schakel email notificaties in
                         </label>
                     </td>
@@ -56,7 +56,7 @@
                     <th><label for="rp_push_notifications">Push Notificaties</label></th>
                     <td>
                         <label>
-                            <input type="checkbox" id="rp_push_notifications" name="rooster_planner_options[push_notifications]" value="1" <?php checked(get_option('rooster_planner_push_notifications', 1)); ?>>
+                            <input type="checkbox" id="rp_push_notifications" name="rooster_planner_push_notifications" value="1" <?php checked(get_option('rooster_planner_push_notifications', 1)); ?>>
                             Schakel push notificaties in (browser)
                         </label>
                     </td>
@@ -74,7 +74,7 @@
                 <tr>
                     <th><label for="rp_custom_css">Aangepaste CSS</label></th>
                     <td>
-                        <textarea id="rp_custom_css" name="rooster_planner_options[custom_css]" rows="10" class="large-text code"><?php echo esc_textarea(get_option('rooster_planner_custom_css', '')); ?></textarea>
+                        <textarea id="rp_custom_css" name="rooster_planner_custom_css" rows="10" class="large-text code"><?php echo esc_textarea(get_option('rooster_planner_custom_css', '')); ?></textarea>
                         <p class="description">Voeg hier je eigen CSS toe om de frontend te stylen. Deze CSS wordt op alle frontend pagina's geladen.</p>
                     </td>
                 </tr>
@@ -248,6 +248,11 @@
             <a href="<?php echo admin_url('admin.php?page=rooster-planner-settings&export=availability'); ?>" class="button">
                 ✅ Beschikbaarheid Exporteren
             </a>
+            <?php if (get_option('rooster_planner_enable_worked_hours', 0)): ?>
+            <a href="<?php echo admin_url('admin.php?page=rooster-planner-settings&export=worked_hours'); ?>" class="button button-primary">
+                ⏰ Gewerkte Uren Exporteren (Excel)
+            </a>
+            <?php endif; ?>
         </div>
     </div>
     
