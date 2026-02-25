@@ -68,11 +68,8 @@
                                     $tooltip .= ' | Notitie: ' . $avail->notes;
                                 }
                                 echo '<td class="rp-day-col ' . $status_class . '" title="' . esc_attr($tooltip) . '">';
-                                if ($avail->shift_name) {
-                                    echo '<small style="display:block;font-size:9px;line-height:1;">' . esc_html(substr($avail->shift_name, 0, 8)) . '</small>';
-                                }
-                                echo $avail->is_available ? '✓' : '✗';
-                                echo '</td>';
+echo $avail->is_available ? '✓' : '✗';
+echo '</td>';
                             } else {
                                 echo '<td class="rp-day-col rp-no-data">-</td>';
                             }
@@ -155,7 +152,6 @@ function changeMonth(month) {
 .rp-availability-table-wrapper {
     overflow-x: auto;
     max-height: 600px;
-    margin-left: 280px; /* Space for sticky column */
 }
 .rp-availability-table {
     min-width: max-content;
@@ -164,49 +160,28 @@ function changeMonth(month) {
 }
 .rp-availability-table th,
 .rp-availability-table td {
-    padding: 8px 4px;
+    padding: 8px 6px;
     text-align: center;
-    min-width: 40px;
+    min-width: 50px;
 }
 .rp-sticky-col {
-    position: sticky;
-    left: 0;
     background: #fff;
     z-index: 100;
-    min-width: 280px;
-    width: 280px;
-    max-width: 280px;
+    min-width: 150px;
+    width: 150px;
     text-align: left;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    border-right: 2px solid #e5e7eb;
-    padding: 8px 12px;
+    border-right: 1px solid #e5e7eb;
+    padding: 8px 10px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .rp-sticky-col::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 5px;
-    background: linear-gradient(to right, rgba(0,0,0,0.1), transparent);
+    content: none;
 }
 .rp-availability-table thead .rp-sticky-col {
     z-index: 101;
     background: #f0f0f1;
-}
-.rp-availability-table th.rp-sticky-col,
-.rp-availability-table td.rp-sticky-col {
-    position: fixed;
-    left: 180px; /* Account for admin menu */
-}
-@media screen and (max-width: 782px) {
-    .rp-availability-table th.rp-sticky-col,
-    .rp-availability-table td.rp-sticky-col {
-        left: 10px;
-    }
 }
 .rp-day-col {
     font-size: 12px;

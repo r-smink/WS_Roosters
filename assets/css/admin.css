@@ -2,6 +2,7 @@
 
 .rp-admin-wrap {
     max-width: 1400px;
+    min-width: 1600px;
     margin: 20px 0;
 }
 
