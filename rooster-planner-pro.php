@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.9
+ * Version: 1.4
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.9');
+define('ROOSTER_PLANNER_VERSION', '1.4.0');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -76,9 +76,11 @@ function rooster_planner_activate() {
         email_notifications tinyint(1) DEFAULT 1 COMMENT 'Email notificaties ingeschakeld',
         push_notifications tinyint(1) DEFAULT 1 COMMENT 'Push notificaties ingeschakeld',
         is_active tinyint(1) DEFAULT 1,
+        ical_token varchar(64) DEFAULT NULL COMMENT 'Token for persistent iCal feed',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        KEY user_id (user_id)
+        KEY user_id (user_id),
+        KEY ical_token (ical_token)
     ) $charset_collate;";
 
     // Employee locations (many-to-many)
@@ -324,6 +326,16 @@ function rooster_planner_run_upgrades() {
         ) {$charset_collate};");
     }
     
+    // Add ical_token to employees table (version 1.4.0+)
+    if (version_compare($installed_version, '1.4.0', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('ical_token', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL AFTER is_active");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
+        }
+    }
+    
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
 }
@@ -415,12 +427,14 @@ function rooster_planner_init() {
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-frontend.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ajax.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-notifications.php';
+    require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ical-export.php';
     
     // Initialize classes
     new RoosterPlanner\Admin();
     new RoosterPlanner\Frontend();
     new RoosterPlanner\Ajax();
     new RoosterPlanner\Notifications();
+    new RoosterPlanner\ICalExport();
 }
 
 function rooster_planner_register_settings() {

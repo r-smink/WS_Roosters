@@ -84,6 +84,15 @@ class Admin {
         
         add_submenu_page(
             'rooster-planner',
+            'Rapportages',
+            'Rapportages',
+            'manage_options',
+            'rooster-planner-reports',
+            [$this, 'render_reports']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
             'Instellingen',
             'Instellingen',
             'manage_options',
@@ -480,5 +489,83 @@ class Admin {
                 ]);
             }
         }
+    }
+    
+    public function render_reports() {
+        global $wpdb;
+        
+        // Get filter parameters
+        $report_type = isset($_GET['report_type']) ? sanitize_text_field($_GET['report_type']) : 'hours';
+        $month = isset($_GET['month']) ? sanitize_text_field($_GET['month']) : date('Y-m');
+        $location_id = isset($_GET['location_id']) ? intval($_GET['location_id']) : 0;
+        $employee_id = isset($_GET['employee_id']) ? intval($_GET['employee_id']) : 0;
+        
+        // Get all locations and employees for filters
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID WHERE e.is_active = 1 ORDER BY u.display_name");
+        
+        // Build date range
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        // Get report data based on type
+        $report_data = [];
+        
+        if ($report_type === 'hours') {
+            // Hours per employee report
+            $where_clause = "s.work_date BETWEEN %s AND %s AND s.status != 'cancelled'";
+            $params = [$start_date, $end_date];
+            
+            if ($location_id > 0) {
+                $where_clause .= " AND s.location_id = %d";
+                $params[] = $location_id;
+            }
+            if ($employee_id > 0) {
+                $where_clause .= " AND s.employee_id = %d";
+                $params[] = $employee_id;
+            }
+            
+            $report_data = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id as employee_id, u.display_name as employee_name, e.contract_hours,
+                    COUNT(s.id) as total_shifts,
+                    SUM(TIMESTAMPDIFF(MINUTE, s.start_time, s.end_time) / 60) as total_hours,
+                    GROUP_CONCAT(DISTINCT l.name SEPARATOR ', ') as locations
+                FROM {$wpdb->prefix}rp_employees e
+                LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                LEFT JOIN {$wpdb->prefix}rp_schedules s ON e.id = s.employee_id AND {$where_clause}
+                LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+                WHERE e.is_active = 1
+                GROUP BY e.id
+                HAVING total_shifts > 0 OR %d = 0
+                ORDER BY u.display_name",
+                array_merge($params, [$employee_id])
+            ));
+        } elseif ($report_type === 'sickness') {
+            // Sickness per employee report
+            $where_clause = "t.created_at BETWEEN %s AND %s";
+            $params = [$start_date . ' 00:00:00', $end_date . ' 23:59:59'];
+            
+            if ($employee_id > 0) {
+                $where_clause .= " AND t.employee_id = %d";
+                $params[] = $employee_id;
+            }
+            
+            $report_data = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id as employee_id, u.display_name as employee_name,
+                    COUNT(t.id) as sickness_reports,
+                    SUM(DATEDIFF(t.end_date, t.start_date) + 1) as total_days,
+                    GROUP_CONCAT(DISTINCT CONCAT(DATE_FORMAT(t.start_date, '%d-%m-%Y'), ' tot ', DATE_FORMAT(t.end_date, '%d-%m-%Y')) SEPARATOR '; ') as periods
+                FROM {$wpdb->prefix}rp_employees e
+                LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                LEFT JOIN {$wpdb->prefix}rp_timeoff t ON e.id = t.employee_id AND t.type = 'sick' AND {$where_clause}
+                WHERE e.is_active = 1
+                GROUP BY e.id
+                HAVING sickness_reports > 0 OR %d = 0
+                ORDER BY sickness_reports DESC, u.display_name",
+                array_merge($params, [$employee_id])
+            ));
+        }
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/reports.php';
     }
 }

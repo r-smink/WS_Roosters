@@ -102,6 +102,10 @@
                     <span class="rp-icon">🔄</span>
                     <span>Ruilen</span>
                 </a>
+                <a href="<?php echo home_url('/medewerker-berichten/'); ?>" class="rp-action-item">
+                    <span class="rp-icon">📨</span>
+                    <span>Berichten</span>
+                </a>
                 <a href="<?php echo home_url('/medewerker-chat/'); ?>" class="rp-action-item">
                     <span class="rp-icon">💬</span>
                     <span>Chat</span>
@@ -274,7 +278,7 @@
 }
 .rp-action-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
 }
 .rp-action-item {

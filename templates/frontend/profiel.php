@@ -141,11 +141,39 @@
         
         <!-- Export -->
         <div class="rp-card rp-full-width">
-            <h2>Mijn Rooster Exporteren</h2>
-            <p>Download je rooster als ICS bestand om te importeren in je eigen agenda (Google Calendar, Outlook, etc).</p>
-            <a href="?export=ics" class="rp-btn rp-btn-primary">
-                📥 Download ICS Bestand
-            </a>
+            <h2>📅 iCal Feed - Altijd Synchroon</h2>
+            <p>Gebruik deze unieke link om je rooster te synchroniseren met je persoonlijke agenda (Google Calendar, Outlook, Apple Calendar).</p>
+            <p class="rp-ical-info">Deze link blijft altijd actief en synchroniseert automatisch wanneer een nieuwe maand definitief wordt gemaakt.</p>
+            
+            <?php
+            use RoosterPlanner\ICalExport;
+            $ical_url = ICalExport::get_ical_url($employee->id);
+            ?>
+            
+            <div class="rp-ical-url-container">
+                <input type="text" id="ical-url" value="<?php echo esc_url($ical_url); ?>" readonly class="rp-ical-input">
+                <button type="button" class="rp-btn rp-btn-secondary" onclick="copyIcalUrl()">
+                    📋 Kopieer Link
+                </button>
+            </div>
+            
+            <div class="rp-ical-instructions">
+                <h4>📱 Hoe te gebruiken:</h4>
+                <ul>
+                    <li><strong>Google Calendar:</strong> Instellingen → Agenda's toevoegen → Per URL toevoegen</li>
+                    <li><strong>Outlook:</strong> Agenda toevoegen → Abonneren op internetagenda</li>
+                    <li><strong>iPhone/iPad:</strong> Instellingen → Agenda's → Accounts → Agenda toevoegen → Abonneren op agenda</li>
+                </ul>
+            </div>
+            
+            <div class="rp-ical-actions">
+                <a href="<?php echo esc_url($ical_url); ?>" class="rp-btn rp-btn-primary" download>
+                    📥 Download ICS Bestand
+                </a>
+                <button type="button" class="rp-btn rp-btn-secondary" onclick="regenerateIcalToken()">
+                    🔄 Nieuwe Link Genereren
+                </button>
+            </div>
         </div>
     </div>
 
@@ -302,6 +330,46 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelector('.rp-container').classList.toggle('rp-dark-theme', storedTheme === 'dark');
     }
 });
+
+function copyIcalUrl() {
+    var input = document.getElementById('ical-url');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(function() {
+        var btn = document.querySelector('button[onclick="copyIcalUrl()"]');
+        var originalText = btn.textContent;
+        btn.textContent = '✅ Gekopieerd!';
+        setTimeout(function() {
+            btn.textContent = originalText;
+        }, 2000);
+    });
+}
+
+function regenerateIcalToken() {
+    if (!confirm('Weet je zeker dat je een nieuwe iCal link wilt genereren?\n\nDe oude link zal niet meer werken en je moet de nieuwe link toevoegen aan je agenda.')) {
+        return;
+    }
+    
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_regenerate_ical_token',
+            nonce: rpAjax.nonce
+        },
+        success: function(response) {
+            if (response.success) {
+                document.getElementById('ical-url').value = response.data.url;
+                alert('Nieuwe iCal link gegenereerd!\n\nVergeet niet de nieuwe link toe te voegen aan je agenda.');
+            } else {
+                alert('Fout bij genereren van nieuwe link: ' + response.data);
+            }
+        },
+        error: function() {
+            alert('Er is een fout opgetreden.');
+        }
+    });
+}
 </script>
 
 <style>
@@ -352,6 +420,75 @@ document.addEventListener('DOMContentLoaded', function() {
 @media (max-width: 600px) {
     .rp-profile-grid { grid-template-columns: 1fr; }
     .rp-stats-grid { grid-template-columns: 1fr; }
+    .rp-ical-url-container { flex-direction: column; }
+    .rp-ical-actions { flex-direction: column; }
+}
+
+/* iCal Section Styles */
+.rp-ical-info {
+    background: #dbeafe;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1e40af;
+    margin: 10px 0;
+}
+.rp-ical-url-container {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+}
+.rp-ical-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #f9fafb;
+}
+.rp-ical-instructions {
+    background: #f9fafb;
+    padding: 15px;
+    border-radius: 6px;
+    margin: 15px 0;
+}
+.rp-ical-instructions h4 {
+    margin: 0 0 10px 0;
+    color: #374151;
+}
+.rp-ical-instructions ul {
+    margin: 0;
+    padding-left: 20px;
+}
+.rp-ical-instructions li {
+    margin: 5px 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+.rp-ical-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* Dark theme support for iCal section */
+.rp-container.rp-dark-theme .rp-ical-info {
+    background: #1e3a8a;
+    color: #93c5fd;
+}
+.rp-container.rp-dark-theme .rp-ical-input {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+.rp-container.rp-dark-theme .rp-ical-instructions {
+    background: #374151;
+}
+.rp-container.rp-dark-theme .rp-ical-instructions h4 {
+    color: #f9fafb;
+}
+.rp-container.rp-dark-theme .rp-ical-instructions li {
+    color: #d1d5db;
 }
 
 /* Dark theme support for profiel page */

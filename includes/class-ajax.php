@@ -39,6 +39,7 @@ class Ajax {
         add_action('wp_ajax_rp_auto_schedule', [$this, 'auto_schedule']);
         add_action('wp_ajax_rp_move_schedule', [$this, 'move_schedule']);
         add_action('wp_ajax_rp_finalize_month', [$this, 'finalize_month']);
+        add_action('wp_ajax_rp_regenerate_ical_token', [$this, 'regenerate_ical_token']);
     }
     
     public function save_schedule() {
@@ -1188,6 +1189,22 @@ class Ajax {
     }
     
     /**
+     * Calculate shift hours between start and end time
+     */
+    private function calculate_shift_hours($start_time, $end_time) {
+        $start = strtotime($start_time);
+        $end = strtotime($end_time);
+        
+        // Handle overnight shifts
+        if ($end < $start) {
+            $end = strtotime('+1 day', $end);
+        }
+        
+        $diff_hours = ($end - $start) / 3600;
+        return round($diff_hours, 2);
+    }
+    
+    /**
      * Move a schedule to a new date or shift (drag and drop)
      */
     public function move_schedule() {
@@ -1362,6 +1379,29 @@ class Ajax {
                 '%d medewerkers hebben een notificatie ontvangen met hun roosteroverzicht.',
                 $notification_count
             )
+        ]);
+    }
+    
+    /**
+     * Regenerate iCal token for current employee
+     */
+    public function regenerate_ical_token() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        // Generate new token
+        $new_token = ICalExport::generate_token($employee->id);
+        $new_url = ICalExport::get_ical_url($employee->id);
+        
+        wp_send_json_success([
+            'url' => $new_url,
+            'message' => 'Nieuwe iCal link gegenereerd'
         ]);
     }
 }
