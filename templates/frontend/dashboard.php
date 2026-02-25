@@ -7,8 +7,11 @@
         <a href="<?php echo home_url('/medewerker-beschikbaarheid/'); ?>" class="rp-btn rp-btn-secondary">
             ✅ Beschikbaarheid Doorgeven
         </a>
-        <a href="<?php echo home_url('/medewerker-ruilen/'); ?>" class="rp-btn rp-btn-secondary">
-            🔄 Ruilen
+        <a href="<?php echo home_url('/medewerker-ziekmelden/'); ?>" class="rp-btn rp-btn-secondary">
+            🤒 Ziekmelden
+        </a>
+        <a href="<?php echo home_url('/medewerker-verlof/'); ?>" class="rp-btn rp-btn-primary" style="background: #10B981;">
+            🏖️ Verlof Aanvragen
         </a>
     </div>
 </header>
@@ -113,6 +116,10 @@
                 <a href="<?php echo home_url('/medewerker-ziekmelden/'); ?>" class="rp-action-item rp-action-urgent">
                     <span class="rp-icon">🤒</span>
                     <span>Ziekmelden</span>
+                </a>
+                <a href="<?php echo home_url('/medewerker-verlof/'); ?>" class="rp-action-item" style="background: #d1fae5;">
+                    <span class="rp-icon">🏖️</span>
+                    <span>Verlof Aanvragen</span>
                 </a>
                 <a href="<?php echo home_url('/medewerker-profiel/'); ?>" class="rp-action-item">
                     <span class="rp-icon">👤</span>

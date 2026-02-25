@@ -454,6 +454,10 @@ function rooster_planner_create_pages() {
             'title' => 'Ziekmelden',
             'content' => '[roosterplanner_ziekmelden]'
         ],
+        'medewerker-verlof' => [
+            'title' => 'Verlof Aanvragen',
+            'content' => '[roosterplanner_verlof]'
+        ],
         'medewerker-profiel' => [
             'title' => 'Mijn Profiel',
             'content' => '[roosterplanner_profielformulier]'
@@ -561,7 +565,7 @@ function rooster_planner_pwa_head() {
     $page_slug = get_post_field('post_name', get_the_ID());
     $plugin_pages = ['medewerker-login', 'medewerker-dashboard', 'medewerker-rooster', 
                      'medewerker-beschikbaarheid', 'medewerker-ruilen', 'medewerker-chat',
-                     'medewerker-ziekmelden', 'medewerker-profiel', 'medewerker-berichten'];
+                     'medewerker-ziekmelden', 'medewerker-verlof', 'medewerker-profiel', 'medewerker-berichten'];
     
     if (!in_array($page_slug, $plugin_pages)) return;
     

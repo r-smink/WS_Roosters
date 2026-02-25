@@ -11,6 +11,7 @@ class Frontend {
         add_shortcode('roosterplanner_ruilenen', [$this, 'render_ruilen']);
         add_shortcode('roosterplanner_chat', [$this, 'render_chat']);
         add_shortcode('roosterplanner_ziekmelden', [$this, 'render_ziekmelden']);
+        add_shortcode('roosterplanner_verlof', [$this, 'render_verlof']);
         add_shortcode('roosterplanner_profielformulier', [$this, 'render_profielformulier']);
         add_shortcode('roosterplanner_berichten', [$this, 'render_berichten']);
         
@@ -352,6 +353,37 @@ class Frontend {
         ob_start();
         echo '<div class="rp-container rp-ziekmelden' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/ziekmelden.php';
+        echo '</div>';
+        return ob_get_clean();
+    }
+    
+    public function render_verlof($atts) {
+        if (!is_user_logged_in()) {
+            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken.</div>';
+        }
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            return '<div class="rp-notice rp-notice-error">Je hebt geen toegang tot het roostersysteem.</div>';
+        }
+        
+        global $wpdb;
+        
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
+        // Get employee's timeoff requests
+        $my_timeoff_requests = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_timeoff 
+            WHERE employee_id = %d 
+            ORDER BY created_at DESC 
+            LIMIT 20",
+            $employee->id
+        ));
+        
+        ob_start();
+        echo '<div class="rp-container rp-verlof' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/verlof.php';
         echo '</div>';
         return ob_get_clean();
     }

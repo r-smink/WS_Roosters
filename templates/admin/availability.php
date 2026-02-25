@@ -27,11 +27,13 @@
                         <th class="rp-sticky-col">Medewerker</th>
                         <?php
                         $days_in_month = date('t', strtotime($current_month . '-01'));
+                        $weekdays = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
                         for ($day = 1; $day <= $days_in_month; $day++) {
                             $date = $current_month . '-' . sprintf('%02d', $day);
-                            $weekday = date('D', strtotime($date));
-                            $is_weekend = in_array($weekday, ['Sat', 'Sun']);
-                            echo '<th class="rp-day-col ' . ($is_weekend ? 'rp-weekend' : '') . '">' . $day . '</th>';
+                            $weekday_num = date('w', strtotime($date));
+                            $weekday = $weekdays[$weekday_num];
+                            $is_weekend = in_array($weekday_num, [0, 6]);
+                            echo '<th class="rp-day-col ' . ($is_weekend ? 'rp-weekend' : '') . '" title="' . $weekday . '">' . $day . '<br><small>' . $weekday . '</small></th>';
                         }
                         ?>
                     </tr>
@@ -58,11 +60,17 @@
                             
                             if ($avail) {
                                 $status_class = $avail->is_available ? 'rp-available' : 'rp-unavailable';
-                                $tooltip = $avail->shift_name ?: 'Geen voorkeur';
+                                $tooltip = $avail->shift_name ? 'Voorkeur: ' . $avail->shift_name : 'Geen shift voorkeur';
+                                if ($avail->custom_start && $avail->custom_end) {
+                                    $tooltip .= ' | Tijd: ' . substr($avail->custom_start, 0, 5) . '-' . substr($avail->custom_end, 0, 5);
+                                }
                                 if ($avail->notes) {
-                                    $tooltip .= ' - ' . $avail->notes;
+                                    $tooltip .= ' | Notitie: ' . $avail->notes;
                                 }
                                 echo '<td class="rp-day-col ' . $status_class . '" title="' . esc_attr($tooltip) . '">';
+                                if ($avail->shift_name) {
+                                    echo '<small style="display:block;font-size:9px;line-height:1;">' . esc_html(substr($avail->shift_name, 0, 8)) . '</small>';
+                                }
                                 echo $avail->is_available ? '✓' : '✗';
                                 echo '</td>';
                             } else {
@@ -147,9 +155,10 @@ function changeMonth(month) {
 .rp-availability-table-wrapper {
     overflow-x: auto;
     max-height: 600px;
+    margin-left: 200px; /* Space for sticky column */
 }
 .rp-availability-table {
-    min-width: 100%;
+    min-width: max-content;
     border-collapse: separate;
     border-spacing: 1px;
 }
@@ -157,16 +166,43 @@ function changeMonth(month) {
 .rp-availability-table td {
     padding: 8px 4px;
     text-align: center;
-    min-width: 35px;
+    min-width: 40px;
 }
 .rp-sticky-col {
     position: sticky;
     left: 0;
     background: #fff;
-    z-index: 10;
-    min-width: 150px;
+    z-index: 100;
+    min-width: 200px;
+    width: 200px;
+    max-width: 200px;
     text-align: left;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    border-right: 2px solid #e5e7eb;
+}
+.rp-sticky-col::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(to right, rgba(0,0,0,0.1), transparent);
+}
+.rp-availability-table thead .rp-sticky-col {
+    z-index: 101;
+    background: #f0f0f1;
+}
+.rp-availability-table th.rp-sticky-col,
+.rp-availability-table td.rp-sticky-col {
+    position: fixed;
+    left: 20px; /* Account for admin menu */
+}
+@media screen and (max-width: 782px) {
+    .rp-availability-table th.rp-sticky-col,
+    .rp-availability-table td.rp-sticky-col {
+        left: 10px;
+    }
 }
 .rp-day-col {
     font-size: 12px;

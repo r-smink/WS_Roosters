@@ -201,6 +201,41 @@ jQuery('#availability-form').on('submit', function(e) {
         success: function(response) {
             if (response.success) {
                 jQuery('#save-status').html('<span class="rp-saved">✓ Opgeslagen!</span>');
+                
+                // Update all visual states to reflect saved data
+                jQuery('.rp-day[data-date]').each(function() {
+                    const $day = jQuery(this);
+                    const $cell = $day.find('.rp-day-cell');
+                    const $checkbox = $day.find('.rp-avail-check');
+                    const $toggleText = $day.find('.rp-toggle-text');
+                    const isChecked = $checkbox.is(':checked');
+                    
+                    $cell.removeClass('rp-available rp-unavailable rp-no-data');
+                    if ($checkbox.prop('checked')) {
+                        $cell.addClass('rp-available');
+                        $toggleText.text('✓');
+                    } else {
+                        $cell.addClass('rp-unavailable');
+                        $toggleText.text('✗');
+                    }
+                });
+                
+                // Add summary section showing submitted availability
+                const submittedCount = Object.keys(availability).length;
+                const availableCount = Object.values(availability).filter(a => a.available).length;
+                const unavailableCount = submittedCount - availableCount;
+                
+                let summaryHtml = '<div class="rp-submitted-summary" style="margin-top: 15px; padding: 15px; background: #dbeafe; border-radius: 8px; border-left: 4px solid #3b82f6;">';
+                summaryHtml += '<h4 style="margin: 0 0 10px 0;">📊 Je ingediende beschikbaarheid:</h4>';
+                summaryHtml += '<p style="margin: 5px 0;"><strong>' + availableCount + '</strong> dagen beschikbaar</p>';
+                summaryHtml += '<p style="margin: 5px 0;"><strong>' + unavailableCount + '</strong> dagen niet beschikbaar</p>';
+                summaryHtml += '<p style="margin: 5px 0; font-size: 12px; color: #6b7280;">Je kunt je beschikbaarheid nog wijzigen tot de deadline.</p>';
+                summaryHtml += '</div>';
+                
+                // Remove existing summary if any
+                jQuery('.rp-submitted-summary').remove();
+                jQuery('#save-status').after(summaryHtml);
+                
                 setTimeout(function() {
                     jQuery('#save-status').html('');
                 }, 3000);
