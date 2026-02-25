@@ -294,10 +294,10 @@ function rooster_planner_run_upgrades() {
         $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
         
         if (!in_array('email_notifications', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN email_notifications tinyint(1) DEFAULT 1 AFTER theme_preference");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN email_notifications tinyint(1) DEFAULT 1");
         }
         if (!in_array('push_notifications', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1 AFTER email_notifications");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1");
         }
     }
     
@@ -306,10 +306,10 @@ function rooster_planner_run_upgrades() {
         $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
         
         if (!in_array('contract_hours', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0 AFTER push_notifications");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0");
         }
         if (!in_array('job_role', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL AFTER contract_hours");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL");
         }
     }
     
@@ -331,7 +331,7 @@ function rooster_planner_run_upgrades() {
         $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
         
         if (!in_array('ical_token', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL AFTER is_active");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL");
             $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
         }
     }
@@ -343,13 +343,13 @@ function rooster_planner_run_upgrades() {
     $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
     
     if (!in_array('contract_hours', $columns)) {
-        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0 AFTER push_notifications");
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0");
     }
     if (!in_array('job_role', $columns)) {
-        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL AFTER contract_hours");
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL");
     }
     if (!in_array('ical_token', $columns)) {
-        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL AFTER is_active");
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL");
         $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
     }
 }
