@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.7
+ * Version: 1.3.9
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
