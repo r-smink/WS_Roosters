@@ -1101,9 +1101,9 @@ class Ajax {
                     $shift_hours = $this->calculate_shift_hours($preferred_shift->start_time, $preferred_shift->end_time);
                 }
                 
-                // Check contract hours
+                // Check contract hours per week
                 if ($respect_contract_hours && $emp->contract_hours > 0) {
-                    $current_hours = $scheduled_hours[$emp->id] ?? 0;
+                    $current_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
                     if (($current_hours + $shift_hours) > $emp->contract_hours) {
                         continue;
                     }
@@ -1195,6 +1195,12 @@ class Ajax {
                         continue;
                     }
                     
+                    // Skip if employee has a shift preference for a different shift
+                    $emp_avail = $availability_by_employee[$emp->id][$date] ?? null;
+                    if ($emp_avail && !empty($emp_avail->shift_preference) && $emp_avail->shift_preference != $shift->id) {
+                        continue;
+                    }
+                    
                     // Check if employee is already scheduled for this date
                     $already_scheduled = $wpdb->get_var($wpdb->prepare(
                         "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
@@ -1206,12 +1212,17 @@ class Ajax {
                         continue;
                     }
                     
-                    // Calculate shift hours
-                    $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                    // Calculate shift hours - use custom times if employee has availability with custom times
+                    $emp_avail = $availability_by_employee[$emp->id][$date] ?? null;
+                    if ($emp_avail && !empty($emp_avail->custom_start) && !empty($emp_avail->custom_end)) {
+                        $shift_hours = $this->calculate_shift_hours($emp_avail->custom_start, $emp_avail->custom_end);
+                    } else {
+                        $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                    }
                     
-                    // Check contract hours
+                    // Check contract hours per week
                     if ($respect_contract_hours && $emp->contract_hours > 0) {
-                        $current_hours = $scheduled_hours[$emp->id] ?? 0;
+                        $current_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
                         if (($current_hours + $shift_hours) > $emp->contract_hours) {
                             continue;
                         }
@@ -1303,6 +1314,34 @@ class Ajax {
             'respected_contract_hours' => $respect_contract_hours,
             'respected_availability' => $respect_availability
         ]);
+    }
+    
+    /**
+     * Get total scheduled hours for an employee in a specific week
+     */
+    private function get_scheduled_hours_for_week($employee_id, $date) {
+        global $wpdb;
+        
+        // Get the week containing this date (Monday to Sunday)
+        $timestamp = strtotime($date);
+        $day_of_week = date('N', $timestamp); // 1 = Monday, 7 = Sunday
+        
+        $week_start = date('Y-m-d', strtotime('-' . ($day_of_week - 1) . ' days', $timestamp));
+        $week_end = date('Y-m-d', strtotime('+' . (7 - $day_of_week) . ' days', $timestamp));
+        
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*, sh.start_time, sh.end_time FROM {$wpdb->prefix}rp_schedules s
+            LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+            WHERE s.employee_id = %d AND s.work_date BETWEEN %s AND %s AND s.status != 'cancelled'",
+            $employee_id, $week_start, $week_end
+        ));
+        
+        $total_hours = 0;
+        foreach ($schedules as $schedule) {
+            $total_hours += $this->calculate_shift_hours($schedule->start_time, $schedule->end_time);
+        }
+        
+        return $total_hours;
     }
     
     /**
