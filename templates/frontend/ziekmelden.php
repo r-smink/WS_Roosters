@@ -75,7 +75,6 @@
                     <span class="rp-contact-phone"><?php echo esc_html($admin->phone); ?></span>
                     <a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $admin->phone)); ?>" class="rp-call-btn" title="Bel nu">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-                        Bel nu
                     </a>
                 </div>
                 <?php else: ?>
@@ -171,14 +170,14 @@ jQuery('#sick-form').on('submit', function(e) {
 .rp-contact-role { font-size: 12px; color: #6b7280; margin-top: 2px; }
 .rp-contact-actions { display: flex; align-items: center; gap: 10px; }
 .rp-contact-phone { color: #374151; font-size: 14px; font-weight: 500; }
-.rp-call-btn { display: inline-flex; align-items: center; gap: 6px; background: #dc2626; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
-.rp-call-btn:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220,38,38,0.4); color: #fff; }
-.rp-call-btn:active { transform: translateY(0); }
-.rp-call-btn svg { flex-shrink: 0; }
+.rp-call-btn { display: inline-flex; align-items: center; justify-content: center; background: #dc2626; color: #fff; width: 44px; height: 44px; border-radius: 50%; text-decoration: none; transition: all 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
+.rp-call-btn:hover { background: #b91c1c; transform: scale(1.05); box-shadow: 0 4px 10px rgba(220,38,38,0.4); color: #fff; }
+.rp-call-btn:active { transform: scale(1); }
+.rp-call-btn svg { stroke: #fff; }
 .rp-contact-no-phone { color: #9ca3af; font-style: italic; font-size: 13px; }
 @media (max-width: 600px) {
     .rp-contact-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .rp-contact-actions { width: 100%; }
-    .rp-call-btn { width: 100%; justify-content: center; padding: 12px 18px; font-size: 16px; }
+    .rp-contact-actions { width: 100%; justify-content: flex-start; }
+    .rp-section h2 { font-size: 1.5rem; }
 }
 </style>
