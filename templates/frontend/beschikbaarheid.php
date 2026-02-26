@@ -280,14 +280,14 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-deadline-info.rp-urgent { color: #dc2626; font-weight: 600; }
 .rp-alert-text { animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-.rp-location-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-.rp-tab { padding: 10px 20px; background: #f3f4f6; border-radius: 8px; text-decoration: none; color: #374151; }
+.rp-location-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.rp-tab { padding: 10px 20px; background: #f3f4f6; border-radius: 8px; text-decoration: none; color: #374151; white-space: nowrap; }
 .rp-tab.rp-active { background: #4F46E5; color: #fff; }
-.rp-calendar-wrapper { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
-.rp-calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #f3f4f6; }
+.rp-calendar-wrapper { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rp-calendar-header { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); background: #f3f4f6; min-width: 840px; }
 .rp-weekday { text-align: center; padding: 12px; font-weight: 600; color: #6b7280; }
-.rp-calendar { display: grid; grid-template-columns: repeat(7, 1fr); min-height: 500px; }
-.rp-day { border: 1px solid #e5e7eb; border-top: none; border-left: none; min-height: 100px; padding: 8px; }
+.rp-calendar { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); min-width: 840px; }
+.rp-day { border: 1px solid #e5e7eb; border-top: none; border-left: none; min-height: 120px; padding: 8px; }
 .rp-empty { background: #f9fafb; }
 .rp-weekend { background: #f3f4f6; }
 .rp-today { background: #dbeafe; }
@@ -309,7 +309,7 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-available { background: #d4edda; }
 .rp-unavailable { background: #f8d7da; }
 .rp-no-data { background: #f9fafb; }
-.rp-form-actions { display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px; }
+.rp-form-actions { display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px; flex-wrap: wrap; }
 .rp-save-status { font-weight: 500; }
 .rp-saving { color: #6b7280; }
 .rp-saved { color: #059669; }
@@ -318,10 +318,26 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-instructions h3 { margin: 0 0 10px; }
 .rp-instructions ul { margin: 0; padding-left: 20px; }
 .rp-instructions li { margin: 5px 0; }
+
+/* Mobile Responsive */
 @media (max-width: 768px) {
-    .rp-calendar { min-height: 300px; }
-    .rp-day { min-height: 80px; padding: 4px; }
+    .rp-container { padding: 10px; max-width: 100%; }
+    .rp-header { flex-direction: column; align-items: flex-start; }
+    .rp-header h1 { font-size: 1.5rem; margin-bottom: 10px; }
+    .rp-info-bar { flex-direction: column; align-items: flex-start; }
+    .rp-calendar-wrapper { border-radius: 8px; }
+    .rp-calendar { min-width: 700px; }
+    .rp-calendar-header { min-width: 700px; }
+    .rp-day { min-height: 100px; padding: 4px; }
     .rp-toggle-text { width: 28px; height: 28px; font-size: 14px; }
     .rp-shift-pref, .rp-notes { font-size: 11px; }
+    .rp-form-actions { flex-direction: column; width: 100%; }
+    .rp-form-actions .rp-btn { width: 100%; justify-content: center; }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+    .rp-day { min-height: 90px; }
+    .rp-shift-pref { font-size: 10px; }
 }
 </style>

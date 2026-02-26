@@ -1213,6 +1213,17 @@ class Ajax {
                 $available_employees = [];
                 
                 foreach ($employees as $emp) {
+                    // Check if employee is already scheduled for this date - SKIP if yes
+                    $already_scheduled = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                        WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
+                        $emp->id, $date
+                    ));
+                    
+                    if ($already_scheduled > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
                     // Check if employee has availability for this date
                     if (!isset($availability_by_employee[$emp->id][$date])) {
                         // If respecting availability is required, skip employees without availability
@@ -1229,14 +1240,11 @@ class Ajax {
                         continue;
                     }
                     
-                    // Check if employee is already scheduled for this date
-                    $already_scheduled = $wpdb->get_var($wpdb->prepare(
-                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
-                        WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
-                        $emp->id, $date
-                    ));
-                    
-                    if ($already_scheduled > 0 && !$overwrite_existing) {
+                    // ALSO skip employees who have a shift_preference for THIS shift 
+                    // and were already processed in the first pass
+                    if ($avail && !empty($avail->shift_preference) && $avail->shift_preference == $shift->id) {
+                        // They were either scheduled or added to conflicts in first pass
+                        // Either way, don't schedule them again in second pass
                         continue;
                     }
                     

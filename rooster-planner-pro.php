@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.4.3.1
+ * Version: 1.4.4
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.4.3.1');
+define('ROOSTER_PLANNER_VERSION', '1.4.4');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -575,6 +575,7 @@ function rooster_planner_pwa_head() {
     $icon_192 = get_option('rooster_planner_pwa_icon_192') ?: ROOSTER_PLANNER_PLUGIN_URL . 'assets/images/icon-192x192.png';
     
     echo '<link rel="manifest" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/manifest.json">' . "\n";
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">' . "\n";
     echo '<meta name="theme-color" content="' . esc_attr($theme_color) . '">' . "\n";
     echo '<meta name="apple-mobile-web-app-capable" content="yes">' . "\n";
     echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' . "\n";

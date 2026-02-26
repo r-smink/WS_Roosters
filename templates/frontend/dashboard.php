@@ -201,12 +201,79 @@
     gap: 20px;
 }
 @media (max-width: 768px) {
+    .rp-container { padding: 10px; max-width: 100%; }
     .rp-dashboard-grid {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
     .rp-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .rp-header h1 {
+        font-size: 1.4rem;
+    }
+    .rp-header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    .rp-header-actions .rp-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 20px;
+        font-size: 15px;
+    }
+    .rp-card {
+        padding: 15px;
+    }
+    .rp-card h2 {
+        font-size: 16px;
+    }
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .rp-action-item {
+        padding: 12px 8px;
+    }
+    .rp-icon {
+        font-size: 20px;
+    }
+    .rp-action-item span:last-child {
+        font-size: 12px;
+        text-align: center;
+    }
+    .rp-shift-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .rp-shift-actions {
+        width: 100%;
+    }
+    .rp-shift-actions .rp-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .rp-shift-date {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        min-width: auto;
+    }
+    .rp-day {
+        font-size: 18px;
+    }
+    .rp-month {
+        font-size: 11px;
     }
 }
 .rp-card {
