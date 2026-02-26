@@ -36,6 +36,7 @@ class Ajax {
         add_action('wp_ajax_rp_save_theme_preference', [$this, 'save_theme_preference']);
         add_action('wp_ajax_rp_save_email_preference', [$this, 'save_email_preference']);
         add_action('wp_ajax_rp_save_push_preference', [$this, 'save_push_preference']);
+        add_action('wp_ajax_rp_save_profile', [$this, 'save_profile']);
         add_action('wp_ajax_rp_auto_schedule', [$this, 'auto_schedule']);
         add_action('wp_ajax_rp_resolve_schedule_conflict', [$this, 'resolve_schedule_conflict']);
         add_action('wp_ajax_rp_auto_schedule_finalize', [$this, 'auto_schedule_finalize']);
@@ -961,6 +962,49 @@ class Ajax {
         ], ['id' => $employee->id]);
         
         wp_send_json_success(['enabled' => $enabled]);
+    }
+    
+    /**
+     * Save profile info (phone/email) for the current employee
+     */
+    public function save_profile() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $phone = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : null;
+        $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : null;
+        
+        // Update phone in employees table
+        if ($phone !== null) {
+            $wpdb->update($wpdb->prefix . 'rp_employees', [
+                'phone' => $phone
+            ], ['id' => $employee->id]);
+        }
+        
+        // Update email in WordPress users table
+        if ($email !== null && is_email($email)) {
+            // Check if email is already in use by another user
+            $existing_user = get_user_by('email', $email);
+            if ($existing_user && $existing_user->ID !== get_current_user_id()) {
+                wp_send_json_error('Dit e-mailadres is al in gebruik door een andere gebruiker.');
+                return;
+            }
+            wp_update_user([
+                'ID' => get_current_user_id(),
+                'user_email' => $email
+            ]);
+        } elseif ($email !== null && !is_email($email)) {
+            wp_send_json_error('Ongeldig e-mailadres.');
+            return;
+        }
+        
+        wp_send_json_success(['message' => 'Profiel bijgewerkt']);
     }
     
     /**

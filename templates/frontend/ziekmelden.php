@@ -51,9 +51,14 @@
         <?php endif; ?>
     </div>
     
-    <div class="rp-section rp-info">
-        <h3>📞 Contact Informatie</h3>
-        <p>Bij spoed of vragen, neem direct contact op met je manager:</p>
+    <div class="rp-section rp-urgent-section">
+        <div class="rp-urgent-header">
+            <span class="rp-urgent-icon">🚨</span>
+            <div>
+                <h3>Spoed? Bel direct de teamleider!</h3>
+                <p>Bij spoed of vragen, neem direct telefonisch contact op:</p>
+            </div>
+        </div>
         <div class="rp-contact-list">
             <?php
             global $wpdb;
@@ -61,9 +66,20 @@
             foreach ($admins as $admin):
             ?>
             <div class="rp-contact-item">
-                <span class="rp-contact-name"><?php echo esc_html($admin->display_name); ?></span>
+                <div class="rp-contact-info">
+                    <span class="rp-contact-name"><?php echo esc_html($admin->display_name); ?></span>
+                    <span class="rp-contact-role">Teamleider</span>
+                </div>
                 <?php if ($admin->phone): ?>
-                <span class="rp-contact-phone">📞 <?php echo esc_html($admin->phone); ?></span>
+                <div class="rp-contact-actions">
+                    <span class="rp-contact-phone"><?php echo esc_html($admin->phone); ?></span>
+                    <a href="tel:<?php echo esc_attr(preg_replace('/[^0-9+]/', '', $admin->phone)); ?>" class="rp-call-btn" title="Bel nu">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                        Bel nu
+                    </a>
+                </div>
+                <?php else: ?>
+                <span class="rp-contact-no-phone">Geen telefoonnummer beschikbaar</span>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
@@ -143,11 +159,26 @@ jQuery('#sick-form').on('submit', function(e) {
 .rp-form-section label { display: block; margin-bottom: 8px; font-weight: 500; }
 .rp-form-section textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical; }
 .rp-form-actions { margin-top: 20px; }
+.rp-urgent-section { background: #fff; border: 2px solid #dc2626; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 8px rgba(220,38,38,0.12); }
+.rp-urgent-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.rp-urgent-icon { font-size: 32px; }
+.rp-urgent-header h3 { margin: 0 0 4px; font-size: 18px; color: #dc2626; }
+.rp-urgent-header p { margin: 0; font-size: 14px; color: #6b7280; }
 .rp-contact-list { display: flex; flex-direction: column; gap: 10px; }
-.rp-contact-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 6px; }
-.rp-contact-name { font-weight: 500; }
-.rp-contact-phone { color: #4F46E5; }
+.rp-contact-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca; }
+.rp-contact-info { display: flex; flex-direction: column; }
+.rp-contact-name { font-weight: 600; font-size: 15px; color: #1f2937; }
+.rp-contact-role { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.rp-contact-actions { display: flex; align-items: center; gap: 10px; }
+.rp-contact-phone { color: #374151; font-size: 14px; font-weight: 500; }
+.rp-call-btn { display: inline-flex; align-items: center; gap: 6px; background: #dc2626; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; transition: all 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
+.rp-call-btn:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220,38,38,0.4); color: #fff; }
+.rp-call-btn:active { transform: translateY(0); }
+.rp-call-btn svg { flex-shrink: 0; }
+.rp-contact-no-phone { color: #9ca3af; font-style: italic; font-size: 13px; }
 @media (max-width: 600px) {
-    .rp-contact-item { flex-direction: column; align-items: flex-start; gap: 5px; }
+    .rp-contact-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .rp-contact-actions { width: 100%; }
+    .rp-call-btn { width: 100%; justify-content: center; padding: 12px 18px; font-size: 16px; }
 }
 </style>

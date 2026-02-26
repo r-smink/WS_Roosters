@@ -11,31 +11,53 @@
         <!-- Personal Info -->
         <div class="rp-card">
             <h2>Persoonlijke Informatie</h2>
-            <div class="rp-profile-field">
-                <label>Naam</label>
-                <p><?php echo esc_html($user->display_name); ?></p>
-            </div>
-            <div class="rp-profile-field">
-                <label>Email</label>
-                <p><?php echo esc_html($user->user_email); ?></p>
-            </div>
-            <div class="rp-profile-field">
-                <label>Telefoon</label>
-                <p><?php echo $employee->phone ? esc_html($employee->phone) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
-            </div>
-            <div class="rp-profile-field">
-                <label>Functie</label>
-                <p><?php echo $employee->job_role ? esc_html($employee->job_role) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
-            </div>
-            <div class="rp-profile-field">
-                <label>Contracturen</label>
-                <p><?php echo $employee->contract_hours ? esc_html($employee->contract_hours) . ' uur/week' : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
-            </div>
-            <div class="rp-profile-field">
-                <label>Rol</label>
-                <p><?php echo $employee->is_admin ? '👑 Administrator' : '👤 Medewerker'; ?></p>
-            </div>
-            <a href="<?php echo wp_lostpassword_url(); ?>" class="rp-btn rp-btn-secondary">
+            <form id="rp-profile-form">
+                <div class="rp-profile-field">
+                    <label>Naam</label>
+                    <p><?php echo esc_html($user->display_name); ?></p>
+                </div>
+                <div class="rp-profile-field rp-editable-field">
+                    <label for="rp-profile-email">Email</label>
+                    <div class="rp-field-display" id="rp-email-display">
+                        <p><?php echo esc_html($user->user_email); ?></p>
+                        <button type="button" class="rp-edit-btn" onclick="toggleEditField('email')" title="Bewerken">✏️</button>
+                    </div>
+                    <div class="rp-field-edit" id="rp-email-edit" style="display:none;">
+                        <input type="email" id="rp-profile-email" value="<?php echo esc_attr($user->user_email); ?>" placeholder="je@email.nl">
+                        <button type="button" class="rp-save-field-btn" onclick="toggleEditField('email')">Annuleer</button>
+                    </div>
+                </div>
+                <div class="rp-profile-field rp-editable-field">
+                    <label for="rp-profile-phone">Telefoon</label>
+                    <div class="rp-field-display" id="rp-phone-display">
+                        <p><?php echo $employee->phone ? esc_html($employee->phone) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
+                        <button type="button" class="rp-edit-btn" onclick="toggleEditField('phone')" title="Bewerken">✏️</button>
+                    </div>
+                    <div class="rp-field-edit" id="rp-phone-edit" style="display:none;">
+                        <input type="tel" id="rp-profile-phone" value="<?php echo esc_attr($employee->phone); ?>" placeholder="06-12345678">
+                        <button type="button" class="rp-save-field-btn" onclick="toggleEditField('phone')">Annuleer</button>
+                    </div>
+                </div>
+                <div class="rp-profile-field">
+                    <label>Functie</label>
+                    <p><?php echo $employee->job_role ? esc_html($employee->job_role) : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
+                </div>
+                <div class="rp-profile-field">
+                    <label>Contracturen</label>
+                    <p><?php echo $employee->contract_hours ? esc_html($employee->contract_hours) . ' uur/week' : '<span class="rp-missing">Niet ingevuld</span>'; ?></p>
+                </div>
+                <div class="rp-profile-field">
+                    <label>Rol</label>
+                    <p><?php echo $employee->is_admin ? '👑 Administrator' : '👤 Medewerker'; ?></p>
+                </div>
+                <div class="rp-profile-actions">
+                    <button type="submit" class="rp-btn rp-btn-primary" id="rp-save-profile-btn" style="display:none;">
+                        Opslaan
+                    </button>
+                    <span id="rp-profile-feedback" class="rp-profile-feedback"></span>
+                </div>
+            </form>
+            <a href="<?php echo wp_lostpassword_url(); ?>" class="rp-btn rp-btn-secondary" style="margin-top: 15px;">
                 🔑 Wachtwoord Wijzigen
             </a>
         </div>
@@ -178,6 +200,82 @@
     </div>
 
 <script>
+function toggleEditField(field) {
+    var display = document.getElementById('rp-' + field + '-display');
+    var edit = document.getElementById('rp-' + field + '-edit');
+    var isEditing = edit.style.display !== 'none';
+    
+    display.style.display = isEditing ? 'flex' : 'none';
+    edit.style.display = isEditing ? 'none' : 'flex';
+    
+    if (!isEditing) {
+        edit.querySelector('input').focus();
+    }
+    
+    // Show/hide save button based on any field being edited
+    var anyEditing = document.querySelectorAll('.rp-field-edit[style*="display: flex"], .rp-field-edit:not([style*="display: none"])');
+    var visibleEdits = Array.from(document.querySelectorAll('.rp-field-edit')).filter(function(el) { return el.style.display !== 'none'; });
+    document.getElementById('rp-save-profile-btn').style.display = visibleEdits.length > 0 ? 'inline-flex' : 'none';
+}
+
+jQuery('#rp-profile-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    var btn = document.getElementById('rp-save-profile-btn');
+    var feedback = document.getElementById('rp-profile-feedback');
+    btn.disabled = true;
+    btn.textContent = 'Opslaan...';
+    feedback.textContent = '';
+    
+    var data = {
+        action: 'rp_save_profile',
+        nonce: rpAjax.nonce
+    };
+    
+    var emailEdit = document.getElementById('rp-email-edit');
+    if (emailEdit.style.display !== 'none') {
+        data.email = document.getElementById('rp-profile-email').value;
+    }
+    var phoneEdit = document.getElementById('rp-phone-edit');
+    if (phoneEdit.style.display !== 'none') {
+        data.phone = document.getElementById('rp-profile-phone').value;
+    }
+    
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: data,
+        success: function(response) {
+            btn.disabled = false;
+            btn.textContent = 'Opslaan';
+            if (response.success) {
+                feedback.textContent = '✓ Profiel bijgewerkt!';
+                feedback.style.color = '#059669';
+                // Update display values
+                if (data.email) {
+                    document.querySelector('#rp-email-display p').textContent = data.email;
+                    toggleEditField('email');
+                }
+                if (data.phone !== undefined) {
+                    var phoneP = document.querySelector('#rp-phone-display p');
+                    phoneP.innerHTML = data.phone || '<span class="rp-missing">Niet ingevuld</span>';
+                    toggleEditField('phone');
+                }
+                setTimeout(function() { feedback.textContent = ''; }, 3000);
+            } else {
+                feedback.textContent = response.data || 'Er is een fout opgetreden.';
+                feedback.style.color = '#dc2626';
+            }
+        },
+        error: function() {
+            btn.disabled = false;
+            btn.textContent = 'Opslaan';
+            feedback.textContent = 'Er is een fout opgetreden.';
+            feedback.style.color = '#dc2626';
+        }
+    });
+});
+
 function setTheme(theme, btn) {
     jQuery.ajax({
         url: rpAjax.ajaxUrl,
@@ -391,6 +489,16 @@ function regenerateIcalToken() {
 .rp-theme-toggle { display: flex; gap: 10px; }
 .rp-description { font-size: 13px; color: #6b7280; margin-top: 8px; margin-bottom: 0; }
 .rp-missing { color: #9ca3af; font-style: italic; }
+.rp-field-display { display: flex; align-items: center; gap: 8px; }
+.rp-field-display p { margin: 0; flex: 1; }
+.rp-edit-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 8px; border-radius: 4px; opacity: 0.6; transition: opacity 0.2s; }
+.rp-edit-btn:hover { opacity: 1; background: #f3f4f6; }
+.rp-field-edit { display: flex; gap: 8px; align-items: center; }
+.rp-field-edit input { flex: 1; padding: 8px 12px; border: 2px solid #4F46E5; border-radius: 6px; font-size: 14px; outline: none; }
+.rp-save-field-btn { background: #f3f4f6; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #6b7280; white-space: nowrap; }
+.rp-save-field-btn:hover { background: #e5e7eb; }
+.rp-profile-actions { margin-top: 15px; display: flex; align-items: center; gap: 12px; }
+.rp-profile-feedback { font-size: 13px; font-weight: 500; }
 .rp-location-list { display: flex; flex-direction: column; gap: 10px; }
 .rp-location-item { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 6px; }
 .rp-empty { color: #9ca3af; font-style: italic; }
