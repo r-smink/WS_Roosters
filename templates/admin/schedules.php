@@ -75,14 +75,14 @@
     
     global $wpdb;
     $schedules = $wpdb->get_results($wpdb->prepare(
-        "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, sh.color,
+        "SELECT s.*, sh.name as shift_name, sh.color,
         u.display_name as employee_name, e.id as emp_id, e.is_fixed
         FROM {$wpdb->prefix}rp_schedules s
         LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
         LEFT JOIN {$wpdb->prefix}rp_employees e ON s.employee_id = e.id
         LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
         WHERE s.location_id = %d AND s.work_date BETWEEN %s AND %s AND s.status != 'cancelled'
-        ORDER BY s.work_date, sh.start_time",
+        ORDER BY s.work_date, s.start_time",
         $current_location, $start_date, $end_date
     ));
     

@@ -1687,6 +1687,18 @@ class Ajax {
         $start_time = $custom_start ?: $shift->start_time;
         $end_time = $custom_end ?: $shift->end_time;
         
+        // Check if a schedule already exists for this date/shift
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_schedules 
+            WHERE work_date = %s AND shift_id = %d AND status != 'cancelled'",
+            $date, $shift_id
+        ));
+        
+        // Delete existing schedule to prevent duplicates
+        if ($existing) {
+            $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing->id]);
+        }
+        
         // Store the resolved conflict in a temporary table or session
         // For now, we'll create the schedule directly
         $wpdb->insert($wpdb->prefix . 'rp_schedules', [
