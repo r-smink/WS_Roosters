@@ -460,6 +460,29 @@
     </div>
 </div>
 
+<!-- Conflict Resolution Modal -->
+<div id="conflict-modal" class="rp-modal" style="display:none;">
+    <div class="rp-modal-content" style="min-width: 600px; max-width: 800px;">
+        <h2>Shift Conflict Oplossen</h2>
+        <p class="description">Meerdere medewerkers hebben dezelfde voorkeur voor deze shift. Selecteer wie deze shift krijgt.</p>
+        
+        <div id="conflict-details" style="margin: 20px 0; padding: 15px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+            <p><strong>Datum:</strong> <span id="conflict-date"></span></p>
+            <p><strong>Shift:</strong> <span id="conflict-shift"></span></p>
+        </div>
+        
+        <div id="conflict-employees-list" style="max-height: 400px; overflow-y: auto; margin: 20px 0;">
+            <!-- Employees will be listed here -->
+        </div>
+        
+        <div class="rp-modal-actions">
+            <button type="button" class="button button-primary" onclick="resolveConflict()">Toewijzen</button>
+            <button type="button" class="button" onclick="skipConflict()">Overslaan</button>
+            <button type="button" class="button" onclick="closeModal('conflict-modal')">Annuleren</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function changeView(view) {
     const url = new URL(window.location.href);
@@ -946,6 +969,203 @@ function clearCalendar() {
             jQuery('button[onclick="clearCalendar()"]').prop('disabled', false).text('🗑️ Kalender Leegmaken');
         }
     });
+}
+
+// Conflict Resolution Variables
+let currentConflicts = [];
+let currentConflictIndex = 0;
+let autoScheduleFormData = null;
+
+// Auto-Schedule form handler with conflict detection
+jQuery('#auto-schedule-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    autoScheduleFormData = jQuery(this).serialize();
+    const submitBtn = jQuery(this).find('button[type="submit"]');
+    const originalText = submitBtn.text();
+    
+    submitBtn.prop('disabled', true).text('Bezig met plannen...');
+    
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_auto_schedule',
+            nonce: rpAjax.nonce,
+            data: autoScheduleFormData,
+            resolve_conflicts: true
+        },
+        success: function(response) {
+            submitBtn.prop('disabled', false).text(originalText);
+            
+            if (response.success) {
+                const data = response.data;
+                
+                // Check if there are conflicts to resolve
+                if (data.conflicts && data.conflicts.length > 0) {
+                    currentConflicts = data.conflicts;
+                    currentConflictIndex = 0;
+                    document.getElementById('auto-schedule-modal').style.display = 'none';
+                    showConflictModal();
+                } else {
+                    // No conflicts, show results
+                    showAutoScheduleResults(data);
+                }
+            } else {
+                alert('Fout bij auto-planning: ' + response.data);
+            }
+        },
+        error: function() {
+            submitBtn.prop('disabled', false).text(originalText);
+            alert('Er is een fout opgetreden bij het uitvoeren van de auto-planning.');
+        }
+    });
+});
+
+function showConflictModal() {
+    if (currentConflictIndex >= currentConflicts.length) {
+        // All conflicts resolved, continue with auto-schedule
+        closeModal('conflict-modal');
+        finalizeAutoSchedule();
+        return;
+    }
+    
+    const conflict = currentConflicts[currentConflictIndex];
+    document.getElementById('conflict-date').textContent = conflict.date;
+    document.getElementById('conflict-shift').textContent = conflict.shift_name + ' (' + conflict.shift_time + ')';
+    
+    // Build employee list
+    let employeesHtml = '<table class="widefat" style="width:100%;">';
+    employeesHtml += '<thead><tr><th>Select</th><th>Medewerker</th><th>Uren deze week</th><th>Eigen tijd</th><th>Info</th></tr></thead>';
+    employeesHtml += '<tbody>';
+    
+    conflict.employees.forEach(function(emp, index) {
+        const hasCustomTime = emp.custom_start && emp.custom_end;
+        const customTimeText = hasCustomTime ? emp.custom_start + ' - ' + emp.custom_end : 'Standaard';
+        const weekHoursText = emp.weekly_hours.toFixed(1) + ' / ' + (emp.contract_hours || '∞') + ' uur';
+        
+        employeesHtml += `
+            <tr style="${index === 0 ? 'background:#f0f9ff;' : ''}">
+                <td><input type="radio" name="conflict_employee" value="${emp.employee_id}" ${index === 0 ? 'checked' : ''}></td>
+                <td><strong>${emp.employee_name}</strong></td>
+                <td>${weekHoursText}</td>
+                <td>${customTimeText}</td>
+                <td>${emp.contract_hours > 0 && emp.weekly_hours >= emp.contract_hours ? '<span style="color:#f59e0b;">⚠️ Contracturen bereikt</span>' : ''}</td>
+            </tr>
+        `;
+    });
+    
+    employeesHtml += '</tbody></table>';
+    employeesHtml += '<p style="margin-top:10px;color:#6b7280;font-size:12px;">Selecteer de medewerker die deze shift krijgt:</p>';
+    
+    document.getElementById('conflict-employees-list').innerHTML = employeesHtml;
+    document.getElementById('conflict-modal').style.display = 'flex';
+}
+
+function resolveConflict() {
+    const selectedEmployee = document.querySelector('input[name="conflict_employee"]:checked');
+    if (!selectedEmployee) {
+        alert('Selecteer een medewerker');
+        return;
+    }
+    
+    const employeeId = selectedEmployee.value;
+    const conflict = currentConflicts[currentConflictIndex];
+    
+    // Save the resolved conflict choice
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_resolve_schedule_conflict',
+            nonce: rpAjax.nonce,
+            date: conflict.date,
+            shift_id: conflict.shift_id,
+            employee_id: employeeId,
+            custom_start: conflict.employees.find(e => e.employee_id == employeeId)?.custom_start || null,
+            custom_end: conflict.employees.find(e => e.employee_id == employeeId)?.custom_end || null
+        },
+        success: function(response) {
+            if (response.success) {
+                currentConflictIndex++;
+                showConflictModal();
+            } else {
+                alert('Fout bij toewijzen: ' + response.data);
+            }
+        }
+    });
+}
+
+function skipConflict() {
+    currentConflictIndex++;
+    showConflictModal();
+}
+
+function finalizeAutoSchedule() {
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_auto_schedule_finalize',
+            nonce: rpAjax.nonce,
+            data: autoScheduleFormData
+        },
+        success: function(response) {
+            if (response.success) {
+                showAutoScheduleResults(response.data);
+            } else {
+                alert('Fout bij finaliseren: ' + response.data);
+            }
+        }
+    });
+}
+
+function showAutoScheduleResults(data) {
+    document.getElementById('auto-schedule-form').style.display = 'none';
+    document.getElementById('auto-schedule-results').style.display = 'block';
+    
+    // Summary
+    document.getElementById('auto-schedule-summary').innerHTML = `
+        <div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <p style="margin: 0;"><strong>${data.scheduled} shifts gepland</strong></p>
+            <p style="margin: 5px 0 0 0; color: #155724;">
+                ${data.respected_contract_hours ? '✓ Contracturen gerespecteerd' : ''}
+                ${data.respected_availability ? '<br>✓ Alleen beschikbare medewerkers gebruikt' : ''}
+                ${data.resolved_conflicts ? '<br>✓ ' + data.resolved_conflicts + ' conflicten opgelost' : ''}
+            </p>
+        </div>
+    `;
+    
+    // Open shifts list
+    let openShiftsHtml = '';
+    if (data.open_shifts && data.open_shifts.length > 0) {
+        openShiftsHtml = '<table class="widefat" style="margin-top: 10px;">';
+        openShiftsHtml += '<thead><tr><th>Datum</th><th>Shift</th><th>Tijd</th><th>Actie</th></tr></thead><tbody>';
+        
+        data.open_shifts.forEach(function(shift) {
+            openShiftsHtml += `
+                <tr>
+                    <td>${shift.date}</td>
+                    <td><span style="background:${shift.color}20; border-left:3px solid ${shift.color}; padding:2px 8px;">${shift.shift_name}</span></td>
+                    <td>${shift.time}</td>
+                    <td><button type="button" class="button button-small" onclick="showAddModal('${shift.date}'); closeModal('auto-schedule-modal');">Invullen</button></td>
+                </tr>
+            `;
+        });
+        
+        openShiftsHtml += '</tbody></table>';
+    } else {
+        openShiftsHtml = '<p style="color: #059669;">✅ Alle shifts zijn ingevuld!</p>';
+    }
+    
+    document.getElementById('open-shifts-list').innerHTML = openShiftsHtml;
+    
+    // Reload page after delay
+    setTimeout(function() {
+        if (confirm('Planning voltooid! Pagina herladen om wijzigingen te zien?')) {
+            location.reload();
+        }
+    }, 500);
 }
 </script>
 
