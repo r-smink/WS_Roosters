@@ -143,7 +143,7 @@
 .rp-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
 }
 .rp-header {
     display: flex;
@@ -151,7 +151,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 15px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 .rp-header h1 {
     margin: 0;
@@ -295,13 +295,13 @@
 .rp-shift-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
 }
 .rp-shift-item {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 15px;
+    gap: 12px;
+    padding: 10px 12px;
     background: #f9fafb;
     border-radius: 8px;
     border-left: 3px solid #4F46E5;

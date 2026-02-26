@@ -48,16 +48,17 @@ class Frontend {
         // Get theme preference
         $theme_preference = $employee->theme_preference ?: 'light';
         
-        // Get upcoming shifts
+        // Get upcoming shifts (next 7 days only)
+        $today = current_time('Y-m-d');
+        $next_week = date('Y-m-d', strtotime('+7 days'));
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
             FROM {$wpdb->prefix}rp_schedules s
             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
-            WHERE s.employee_id = %d AND s.work_date >= %s AND s.status != 'cancelled'
-            ORDER BY s.work_date ASC
-            LIMIT 10",
-            $employee->id, current_time('Y-m-d')
+            WHERE s.employee_id = %d AND s.work_date >= %s AND s.work_date <= %s AND s.status != 'cancelled'
+            ORDER BY s.work_date ASC",
+            $employee->id, $today, $next_week
         ));
         
         // Get unread notifications count

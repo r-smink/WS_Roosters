@@ -168,7 +168,7 @@ jQuery('#sick-form').on('submit', function(e) {
 .rp-contact-info { display: flex; flex-direction: column; }
 .rp-contact-name { font-weight: 600; font-size: 15px; color: #1f2937; }
 .rp-contact-role { font-size: 12px; color: #6b7280; margin-top: 2px; }
-.rp-contact-actions { display: flex; align-items: center; gap: 10px; }
+.rp-contact-actions { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 .rp-contact-phone { color: #374151; font-size: 14px; font-weight: 500; }
 .rp-call-btn { display: inline-flex; align-items: center; justify-content: center; background: #dc2626; color: #fff; width: 44px; height: 44px; border-radius: 50%; text-decoration: none; transition: all 0.2s; box-shadow: 0 2px 6px rgba(220,38,38,0.3); }
 .rp-call-btn:hover { background: #b91c1c; transform: scale(1.05); box-shadow: 0 4px 10px rgba(220,38,38,0.4); color: #fff; }
