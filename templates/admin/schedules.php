@@ -768,6 +768,28 @@ jQuery('#shift_id').on('change', function() {
     }
 });
 
+// Auto-fill custom times when employee changes
+jQuery('#employee_id').on('change', function() {
+    const date = document.getElementById('work_date').value;
+    const option = this.options[this.selectedIndex];
+    if (option.value && date) {
+        const availability = JSON.parse(option.dataset.availability || '{}');
+        if (availability[date]) {
+            const avail = availability[date];
+            // If employee has custom times set, use those
+            if (avail.custom_start && avail.custom_end) {
+                document.getElementById('start_time').value = avail.custom_start;
+                document.getElementById('end_time').value = avail.custom_end;
+            } else if (avail.shift_id) {
+                // If employee has a shift preference, auto-select that shift
+                document.getElementById('shift_id').value = avail.shift_id;
+                // Trigger shift change to fill times
+                jQuery('#shift_id').trigger('change');
+            }
+        }
+    }
+});
+
 // Auto-filter employees when date changes
 jQuery('#work_date').on('change', function() {
     const date = this.value;

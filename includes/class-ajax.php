@@ -1189,8 +1189,146 @@ class Ajax {
             ]);
         }
         
-        // Continue with second pass to fill remaining shifts without specific preferences
-        // ... (second pass logic would go here)
+        // Second pass: fill remaining shifts with employees who have availability but no specific preference
+        // This handles employees who are available with custom times but no shift_preference set
+        for ($day = 1; $day <= $days_in_month; $day++) {
+            $date = $month . '-' . sprintf('%02d', $day);
+            
+            // Skip past dates
+            if ($date < current_time('Y-m-d')) {
+                continue;
+            }
+            
+            foreach ($shifts as $shift) {
+                // Check if shift is already scheduled for this date
+                if (!$overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    continue;
+                }
+                
+                // Find available employees for this shift
+                // Include employees who:
+                // 1. Have availability for this date (is_available = 1)
+                // 2. Don't have a conflicting shift_preference for a DIFFERENT shift
+                // 3. Have custom_start/custom_end set OR not
+                $available_employees = [];
+                
+                foreach ($employees as $emp) {
+                    // Check if employee has availability for this date
+                    if (!isset($availability_by_employee[$emp->id][$date])) {
+                        // If respecting availability is required, skip employees without availability
+                        if ($respect_availability) {
+                            continue;
+                        }
+                    }
+                    
+                    $avail = $availability_by_employee[$emp->id][$date] ?? null;
+                    
+                    // If employee has availability with a shift_preference for a DIFFERENT shift, skip them
+                    // (they already had their chance in the first pass and weren't selected)
+                    if ($avail && !empty($avail->shift_preference) && $avail->shift_preference != $shift->id) {
+                        continue;
+                    }
+                    
+                    // Check if employee is already scheduled for this date
+                    $already_scheduled = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                        WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
+                        $emp->id, $date
+                    ));
+                    
+                    if ($already_scheduled > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    // Calculate shift hours - USE CUSTOM TIMES if employee has them in availability
+                    if ($avail && !empty($avail->custom_start) && !empty($avail->custom_end)) {
+                        $shift_hours = $this->calculate_shift_hours($avail->custom_start, $avail->custom_end);
+                        $start_time = $avail->custom_start;
+                        $end_time = $avail->custom_end;
+                    } else {
+                        $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                        $start_time = $shift->start_time;
+                        $end_time = $shift->end_time;
+                    }
+                    
+                    // Check contract hours per week
+                    if ($respect_contract_hours && $emp->contract_hours > 0) {
+                        $current_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
+                        if (($current_hours + $shift_hours) > $emp->contract_hours) {
+                            continue;
+                        }
+                    }
+                    
+                    // Check for time conflicts with existing schedules
+                    $time_conflict = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules s
+                        LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                        WHERE s.employee_id = %d AND s.work_date = %s AND s.status != 'cancelled'
+                        AND ((sh.start_time < %s AND sh.end_time > %s) OR (sh.start_time < %s AND sh.end_time > %s)
+                        OR (sh.start_time >= %s AND sh.end_time <= %s))",
+                        $emp->id, $date, $end_time, $start_time, 
+                        $end_time, $start_time, $start_time, $end_time
+                    ));
+                    
+                    if ($time_conflict > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    // Employee is available - add to list with priority based on hours worked
+                    $weekly_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
+                    $available_employees[] = [
+                        'employee' => $emp,
+                        'start_time' => $start_time,
+                        'end_time' => $end_time,
+                        'shift_hours' => $shift_hours,
+                        'weekly_hours' => $weekly_hours,
+                        'has_custom_time' => ($avail && !empty($avail->custom_start) && !empty($avail->custom_end))
+                    ];
+                }
+                
+                if (empty($available_employees)) {
+                    // No available employee - mark as open shift
+                    $open_shifts[] = [
+                        'date' => date('d-m-Y', strtotime($date)),
+                        'date_raw' => $date,
+                        'shift_name' => $shift->name,
+                        'time' => substr($shift->start_time, 0, 5) . ' - ' . substr($shift->end_time, 0, 5),
+                        'color' => $shift->color
+                    ];
+                    continue;
+                }
+                
+                // Sort by weekly hours (fewest hours first to balance workload)
+                usort($available_employees, function($a, $b) {
+                    return $a['weekly_hours'] - $b['weekly_hours'];
+                });
+                
+                // Select the employee with fewest hours
+                $selected = $available_employees[0];
+                $selected_employee = $selected['employee'];
+                
+                // If overwriting, delete existing schedule first
+                if ($overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing_by_date_shift[$date][$shift->id]->id]);
+                }
+                
+                // Schedule the shift with custom times if available
+                $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+                    'employee_id' => $selected_employee->id,
+                    'location_id' => $location_id,
+                    'shift_id' => $shift->id,
+                    'work_date' => $date,
+                    'start_time' => $selected['start_time'],
+                    'end_time' => $selected['end_time'],
+                    'status' => 'scheduled',
+                    'created_by' => get_current_user_id()
+                ]);
+                
+                // Mark this shift as filled
+                $existing_by_date_shift[$date][$shift->id] = (object)['id' => $wpdb->insert_id];
+                $scheduled_count++;
+            }
+        }
         
         wp_send_json_success([
             'scheduled' => $scheduled_count,
