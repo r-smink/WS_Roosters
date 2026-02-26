@@ -77,7 +77,8 @@
                 <tr>
                     <?php if ($report_type === 'hours'): ?>
                     <th>Medewerker</th>
-                    <th>Contracturen</th>
+                    <th>Contract (per week)</th>
+                    <th>Verwacht (deze maand)</th>
                     <th>Aantal Diensten</th>
                     <th>Gewerkte Uren</th>
                     <th>Verschil</th>
@@ -96,11 +97,12 @@
                     <?php if ($report_type === 'hours'): ?>
                     <td><strong><?php echo esc_html($row->employee_name); ?></strong></td>
                     <td><?php echo $row->contract_hours ? $row->contract_hours . ' uur' : '-'; ?></td>
+                    <td><?php echo $row->contract_hours ? number_format($row->expected_monthly_hours, 1) . ' uur' : '-'; ?></td>
                     <td><?php echo $row->total_shifts; ?></td>
                     <td><?php echo $row->total_hours ? number_format($row->total_hours, 1) . ' uur' : '0 uur'; ?></td>
                     <td>
                         <?php if ($row->contract_hours > 0 && $row->total_hours): ?>
-                            <?php $diff = $row->total_hours - $row->contract_hours; ?>
+                            <?php $diff = $row->total_hours - $row->expected_monthly_hours; ?>
                             <span class="rp-hours-diff <?php echo $diff > 0 ? 'rp-over' : ($diff < 0 ? 'rp-under' : 'rp-exact'); ?>">
                                 <?php echo ($diff > 0 ? '+' : '') . number_format($diff, 1) . ' uur'; ?>
                             </span>
@@ -121,7 +123,7 @@
             <?php if ($report_type === 'hours'): ?>
             <tfoot>
                 <tr>
-                    <td colspan="2"><strong>Totaal</strong></td>
+                    <td colspan="3"><strong>Totaal</strong></td>
                     <td><strong><?php echo array_sum(array_column($report_data, 'total_shifts')); ?> diensten</strong></td>
                     <td><strong><?php echo number_format(array_sum(array_column($report_data, 'total_hours')), 1); ?> uur</strong></td>
                     <td colspan="2"></td>

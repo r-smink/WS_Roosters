@@ -531,10 +531,15 @@ class Admin {
                 $params[] = $employee_id;
             }
             
+            // Calculate days in month for expected hours calculation
+            $days_in_month = date('t', strtotime($start_date));
+            $weeks_in_month = $days_in_month / 7;
+            
             $report_data = $wpdb->get_results($wpdb->prepare(
                 "SELECT e.id as employee_id, u.display_name as employee_name, e.contract_hours,
                     COUNT(s.id) as total_shifts,
                     SUM(TIMESTAMPDIFF(MINUTE, s.start_time, s.end_time) / 60) as total_hours,
+                    (e.contract_hours * {$weeks_in_month}) as expected_monthly_hours,
                     GROUP_CONCAT(DISTINCT l.name SEPARATOR ', ') as locations
                 FROM {$wpdb->prefix}rp_employees e
                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
