@@ -70,9 +70,16 @@
         let html = '<div class="rp-notification-list">';
         notifications.forEach(function(n) {
             const isUnread = !n.is_read ? 'rp-unread' : '';
-            const targetUrl = (n.type === 'announcement' || n.type === 'admin_notice') 
-                ? rpAjax.pluginUrl + 'medewerker-berichten/'
-                : rpAjax.pluginUrl + 'medewerker-dashboard/';
+            let targetUrl = rpAjax.homeUrl + 'medewerker-dashboard/';
+            if (n.type === 'announcement' || n.type === 'admin_notice') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-berichten/';
+            } else if (n.type === 'swap_request' || n.type === 'swap_response' || n.type === 'swap_claimed_other' || n.type === 'swap_claimed_self' || n.type === 'replacement_needed') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-ruilen/';
+            } else if (n.type === 'timeoff' || n.type === 'timeoff_decision') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-verlof/';
+            } else if (n.type === 'availability_reminder') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-beschikbaarheid/';
+            }
             html += `
                 <div class="rp-notification-item ${isUnread}" data-id="${n.id}" data-url="${targetUrl}">
                     <div class="rp-notification-title">${escapeHtml(n.title)}</div>

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.4.8.1
+ * Version: 1.4.9
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.4.8.1');
+define('ROOSTER_PLANNER_VERSION', '1.4.9');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -652,7 +652,8 @@ function rooster_planner_frontend_assets() {
         'nonce' => wp_create_nonce('rp_nonce'),
         'isLoggedIn' => is_user_logged_in(),
         'currentUserId' => get_current_user_id(),
-        'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL
+        'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL,
+        'homeUrl' => home_url('/')
     ]);
 }
 
