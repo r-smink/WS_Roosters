@@ -70,8 +70,11 @@
         let html = '<div class="rp-notification-list">';
         notifications.forEach(function(n) {
             const isUnread = !n.is_read ? 'rp-unread' : '';
+            const targetUrl = (n.type === 'announcement' || n.type === 'admin_notice') 
+                ? rpAjax.pluginUrl + 'medewerker-berichten/'
+                : rpAjax.pluginUrl + 'medewerker-dashboard/';
             html += `
-                <div class="rp-notification-item ${isUnread}" data-id="${n.id}">
+                <div class="rp-notification-item ${isUnread}" data-id="${n.id}" data-url="${targetUrl}">
                     <div class="rp-notification-title">${escapeHtml(n.title)}</div>
                     <div class="rp-notification-message">${escapeHtml(n.message)}</div>
                     <div class="rp-notification-time">${formatDate(n.created_at)}</div>
@@ -82,11 +85,13 @@
         
         $panel.html(html);
         
-        // Mark as read on click
+        // Mark as read on click + nav to berichten
         $panel.find('.rp-notification-item').on('click', function() {
             const id = $(this).data('id');
+            const url = $(this).data('url');
             markAsRead(id);
             $(this).removeClass('rp-unread');
+            window.location.href = url || rpAjax.pluginUrl + 'medewerker-berichten/';
         });
     }
 

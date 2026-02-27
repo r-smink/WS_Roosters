@@ -24,17 +24,19 @@ self.addEventListener('push', function(event) {
     };
     
     event.waitUntil(
-        self.registration.showNotification(data.title || 'Rooster Planner', options)
+        self.registration.showNotification(data.title || 'Rooster Planner', {
+            ...options,
+            data: { url: data.url || '/medewerker-dashboard/' }
+        })
     );
 });
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/medewerker-dashboard/';
     if (event.action === 'open' || !event.action) {
-        event.waitUntil(
-            clients.openWindow('/medewerker-dashboard/')
-        );
+        event.waitUntil(clients.openWindow(targetUrl));
     }
 });
 

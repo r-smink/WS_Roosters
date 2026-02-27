@@ -29,6 +29,7 @@ class Ajax {
         add_action('wp_ajax_rp_send_chat_message', [$this, 'send_chat_message']);
         add_action('wp_ajax_rp_get_chat_messages', [$this, 'get_chat_messages']);
         add_action('wp_ajax_rp_mark_notification_read', [$this, 'mark_notification_read']);
+        add_action('wp_ajax_rp_mark_all_notifications_read', [$this, 'mark_all_notifications_read']);
         add_action('wp_ajax_rp_get_notifications', [$this, 'get_notifications']);
         add_action('wp_ajax_rp_report_sick', [$this, 'report_sick']);
         add_action('wp_ajax_rp_save_fixed_schedule', [$this, 'save_fixed_schedule']);
@@ -551,6 +552,24 @@ class Ajax {
         
         wp_send_json_success();
     }
+
+    public function mark_all_notifications_read() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $wpdb->update($wpdb->prefix . 'rp_notifications', [
+            'is_read' => 1
+        ], [
+            'user_id' => get_current_user_id()
+        ]);
+        
+        wp_send_json_success();
+    }
     
     public function get_notifications() {
         check_ajax_referer('rp_nonce', 'nonce');
@@ -691,14 +710,15 @@ class Ajax {
         return $emp && $emp->is_admin;
     }
     
-    private function create_notification($user_id, $type, $title, $message) {
+    private function create_notification($user_id, $type, $title, $message, $related_id = null) {
         global $wpdb;
         
         $wpdb->insert($wpdb->prefix . 'rp_notifications', [
             'user_id' => $user_id,
             'type' => $type,
             'title' => $title,
-            'message' => $message
+            'message' => $message,
+            'related_id' => $related_id
         ]);
     }
     

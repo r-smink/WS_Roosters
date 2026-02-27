@@ -10,6 +10,30 @@ class Notifications {
         add_action('wp_footer', [$this, 'add_notification_bell']);
         add_action('rest_api_init', [$this, 'register_rest']);
     }
+
+    private function notification_target_url($type, $related_id = null) {
+        switch ($type) {
+            case 'swap_request':
+            case 'swap_response':
+            case 'swap_claimed_other':
+            case 'swap_claimed_self':
+                return home_url('/medewerker-ruilen/');
+            case 'replacement_needed':
+                return home_url('/medewerker-ruilen/');
+            case 'announcement':
+            case 'admin_notice':
+                return home_url('/medewerker-berichten/');
+            case 'timeoff':
+            case 'timeoff_decision':
+                return home_url('/medewerker-verlof/');
+            case 'availability_reminder':
+                return home_url('/medewerker-beschikbaarheid/');
+            case 'schedule_assigned':
+            case 'schedule_updated':
+            default:
+                return home_url('/medewerker-rooster/');
+        }
+    }
     
     public function schedule_reminders() {
         if (!wp_next_scheduled('rp_daily_reminder')) {
@@ -118,7 +142,7 @@ class Notifications {
         echo '<div id="rp-notification-panel" class="rp-notification-panel" style="display:none;"></div>';
     }
     
-    private function create_notification($user_id, $type, $title, $message) {
+    private function create_notification($user_id, $type, $title, $message, $related_id = null) {
         global $wpdb;
         
         $wpdb->insert($wpdb->prefix . 'rp_notifications', [
@@ -126,11 +150,12 @@ class Notifications {
             'type' => $type,
             'title' => $title,
             'message' => $message,
+            'related_id' => $related_id,
             'created_at' => current_time('mysql')
         ]);
 
         // Fire web push to all subscriptions of this user
-        $this->send_web_push($user_id, $title, $message);
+        $this->send_web_push($user_id, $title, $message, $type, $related_id);
     }
 
     /**
@@ -193,7 +218,7 @@ class Notifications {
     /**
      * Send web push using VAPID keys (if configured)
      */
-    private function send_web_push($user_id, $title, $message) {
+    private function send_web_push($user_id, $title, $message, $type = 'generic', $related_id = null) {
         $public = get_option('rooster_planner_vapid_public', '');
         $private = get_option('rooster_planner_vapid_private', '');
         if (empty($public) || empty($private)) {
@@ -225,7 +250,12 @@ class Notifications {
                 'publicKey' => $sub->p256dh,
                 'authToken' => $sub->auth,
             ]);
-            $payload = json_encode(['title' => $title, 'message' => $message]);
+            $payload = json_encode([
+                'title' => $title,
+                'message' => $message,
+                'type' => $type,
+                'url' => $this->notification_target_url($type, $related_id)
+            ]);
             $webPush->queueNotification($subscription, $payload);
         }
         // Send without blocking
