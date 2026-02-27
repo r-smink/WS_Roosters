@@ -124,6 +124,43 @@
         </table>
         <?php endif; ?>
     </div>
+
+    <div class="rp-section">
+        <h2>Recent Goedgekeurde Verlofaanvragen</h2>
+        <?php if (empty($approved_timeoff)): ?>
+            <p class="rp-empty-state">Nog geen goedgekeurde aanvragen.</p>
+        <?php else: ?>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>Medewerker</th>
+                    <th>Van</th>
+                    <th>Tot</th>
+                    <th>Type</th>
+                    <th>Opmerking</th>
+                    <th>Goedgekeurd op</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($approved_timeoff as $timeoff): ?>
+                <tr>
+                    <td><?php echo esc_html($timeoff->display_name); ?></td>
+                    <td><?php echo date('d-m-Y', strtotime($timeoff->start_date)); ?></td>
+                    <td><?php echo date('d-m-Y', strtotime($timeoff->end_date)); ?></td>
+                    <td>
+                        <?php
+                        $types = ['vacation' => 'Vakantie', 'sick' => 'Ziek', 'personal' => 'Persoonlijk', 'other' => 'Overig'];
+                        echo $types[$timeoff->type] ?? $timeoff->type;
+                        ?>
+                    </td>
+                    <td><?php echo esc_html($timeoff->reason); ?></td>
+                    <td><?php echo $timeoff->responded_at ? date('d-m-Y H:i', strtotime($timeoff->responded_at)) : '-'; ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
 </div>
 
 <!-- Reject Modal -->

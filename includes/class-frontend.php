@@ -310,6 +310,17 @@ class Frontend {
                 array_merge($my_locations, [$employee->id])
             ));
         }
+        // fallback: alle actieve collega's als er geen locatie-match is gevonden
+        if (empty($employees)) {
+            $employees = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id, u.display_name, u.user_email
+                 FROM {$wpdb->prefix}rp_employees e
+                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                 WHERE e.is_active = 1 AND e.id != %d
+                 ORDER BY u.display_name ASC",
+                $employee->id
+            ));
+        }
         
         ob_start();
         echo '<div class="rp-container rp-ruilen' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
@@ -404,10 +415,13 @@ class Frontend {
         
         // Get employee's timeoff requests
         $my_timeoff_requests = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}rp_timeoff 
-            WHERE employee_id = %d 
-            ORDER BY created_at DESC 
-            LIMIT 20",
+            "SELECT t.*, 
+                DATEDIFF(t.end_date, t.start_date) + 1 AS days_requested,
+                t.requested_at AS created_at
+             FROM {$wpdb->prefix}rp_timeoff t
+             WHERE t.employee_id = %d 
+             ORDER BY t.requested_at DESC 
+             LIMIT 20",
             $employee->id
         ));
         

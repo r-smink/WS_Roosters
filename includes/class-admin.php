@@ -257,6 +257,14 @@ class Admin {
             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
             WHERE t.status = 'pending'
             ORDER BY t.requested_at DESC");
+
+        $approved_timeoff = $wpdb->get_results("SELECT t.*, u.display_name
+            FROM {$wpdb->prefix}rp_timeoff t
+            LEFT JOIN {$wpdb->prefix}rp_employees e ON t.employee_id = e.id
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE t.status = 'approved'
+            ORDER BY t.requested_at DESC
+            LIMIT 20");
         
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/swaps.php';
     }
