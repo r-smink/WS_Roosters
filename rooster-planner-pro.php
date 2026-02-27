@@ -531,6 +531,7 @@ function rooster_planner_register_settings() {
     register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
+    register_setting('rooster_planner_options', 'rooster_planner_enable_self_sick_report');
     register_setting('rooster_planner_options', 'rooster_planner_enable_dark_theme');
     register_setting('rooster_planner_options', 'rooster_planner_custom_css');
     
