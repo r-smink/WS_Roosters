@@ -515,6 +515,7 @@ function rooster_planner_init() {
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-frontend.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ajax.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-notifications.php';
+    require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-rest.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ical-export.php';
     
     // Initialize classes
@@ -522,6 +523,7 @@ function rooster_planner_init() {
     new RoosterPlanner\Frontend();
     new RoosterPlanner\Ajax();
     new RoosterPlanner\Notifications();
+    new RoosterPlanner\Rest();
     new RoosterPlanner\ICalExport();
 }
 
