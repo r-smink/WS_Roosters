@@ -35,7 +35,7 @@ class Frontend {
     
     public function render_dashboard($atts) {
         if (!is_user_logged_in()) {
-            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken. <a href="' . wp_login_url() . '">Log in</a></div>';
+            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken. <a href="' . home_url() . '">Log in</a></div>';
         }
         
         $employee = $this->get_current_employee();
