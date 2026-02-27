@@ -218,9 +218,9 @@ class Notifications {
                 'privateKey' => $private,
             ],
         ];
-        $webPush = new \Minishlink\\WebPush\\WebPush($auth);
+        $webPush = new \Minishlink\WebPush\WebPush($auth);
         foreach ($subs as $sub) {
-            $subscription = \Minishlink\\WebPush\\Subscription::create([
+            $subscription = \Minishlink\WebPush\Subscription::create([
                 'endpoint' => $sub->endpoint,
                 'publicKey' => $sub->p256dh,
                 'authToken' => $sub->auth,
