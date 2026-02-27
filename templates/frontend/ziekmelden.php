@@ -7,6 +7,7 @@
     </div>
 </header>
     
+    <?php if ($self_sick_enabled): ?>
     <div class="rp-alert rp-alert-warning">
         <strong>Belangrijk:</strong> Bij ziekmelding wordt er automatisch een verzoek voor vervanging naar alle collega's gestuurd.
     </div>
@@ -50,6 +51,14 @@
         </form>
         <?php endif; ?>
     </div>
+    <?php else: ?>
+    <div class="rp-section rp-info">
+        <div class="rp-alert rp-alert-info">
+            <strong>Ziekmelden via teamleider</strong>
+            <p>Je kunt jezelf niet direct ziek melden. Bel direct je teamleider om je ziek te melden.</p>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <div class="rp-section rp-urgent-section">
         <div class="rp-urgent-header">

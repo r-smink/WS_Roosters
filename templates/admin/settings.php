@@ -72,6 +72,16 @@
                     </td>
                 </tr>
                 <tr>
+                    <th><label for="rp_enable_self_sick_report">Zelf Ziekmelden</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_enable_self_sick_report" name="rooster_planner_enable_self_sick_report" value="1" <?php checked(get_option('rooster_planner_enable_self_sick_report', 1)); ?>>
+                            Sta medewerkers toe om zichzelf ziek te melden
+                        </label>
+                        <p class="description">Wanneer uitgeschakeld kunnen medewerkers alleen bellen naar de teamleider. Teamleiders kunnen dan ziekmeldingen doen via de Verzuim pagina.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th><label for="rp_custom_css">Aangepaste CSS</label></th>
                     <td>
                         <textarea id="rp_custom_css" name="rooster_planner_custom_css" rows="10" class="large-text code"><?php echo esc_textarea(get_option('rooster_planner_custom_css', '')); ?></textarea>

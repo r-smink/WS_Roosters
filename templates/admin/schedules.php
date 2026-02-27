@@ -217,26 +217,6 @@
                         $schedules_by_date_shift[$s->work_date][$s->shift_id][] = $s;
                     }
                     
-                    // Calculate overlaps per shift cell
-                    $overlaps_by_cell = [];
-                    foreach ($schedules as $s1) {
-                        foreach ($schedules as $s2) {
-                            if ($s1->id >= $s2->id) continue;
-                            if ($s1->work_date !== $s2->work_date) continue;
-                            
-                            // Check time overlap
-                            $s1_start = strtotime($s1->start_time);
-                            $s1_end = strtotime($s1->end_time);
-                            $s2_start = strtotime($s2->start_time);
-                            $s2_end = strtotime($s2->end_time);
-                            
-                            if (($s1_start < $s2_end) && ($s1_end > $s2_start)) {
-                                $overlaps_by_cell[$s1->work_date][$s1->shift_id] = true;
-                                $overlaps_by_cell[$s2->work_date][$s2->shift_id] = true;
-                            }
-                        }
-                    }
-                    
                     for ($day = 1; $day <= date('t', strtotime($start_date)); $day++):
                         $date = $current_month . '-' . sprintf('%02d', $day);
                         $is_today = $date === current_time('Y-m-d');
@@ -249,9 +229,8 @@
                         </td>
                         <?php foreach ($location_shifts as $shift): 
                             $cell_schedules = $schedules_by_date_shift[$date][$shift->id] ?? [];
-                            $has_overlap = !empty($overlaps_by_cell[$date][$shift->id]);
                         ?>
-                        <td class="rp-shift-cell <?php echo count($cell_schedules) === 0 ? 'rp-empty-cell' : ''; ?> <?php echo $has_overlap ? 'rp-overlap-cell' : ''; ?> drop-zone"
+                        <td class="rp-shift-cell <?php echo count($cell_schedules) === 0 ? 'rp-empty-cell' : ''; ?> drop-zone"
                             data-date="<?php echo $date; ?>"
                             data-shift-id="<?php echo $shift->id; ?>"
                             ondragover="allowDrop(event)"
@@ -1421,14 +1400,6 @@ function showAutoScheduleResults(data) {
 }
 .rp-weekend-row .rp-sticky-col {
     background: #f3f4f6;
-}
-.rp-overlap-cell {
-    background: #fef3c7 !important;
-    border: 2px solid #f59e0b !important;
-}
-.rp-overlap-cell .rp-cell-employee {
-    background: #fde68a;
-    border-left: 3px solid #f59e0b;
 }
 
 /* Drag and Drop Styles */

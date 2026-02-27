@@ -6,6 +6,7 @@ class Admin {
     public function __construct() {
         add_action('admin_menu', [$this, 'add_menu_pages']);
         add_action('admin_init', [$this, 'handle_admin_actions']);
+        add_action('admin_post_rp_admin_sick_report', [$this, 'handle_admin_sick_report']);
     }
     
     public function add_menu_pages() {
@@ -89,6 +90,15 @@ class Admin {
             'manage_options',
             'rooster-planner-reports',
             [$this, 'render_reports']
+        );
+        
+        add_submenu_page(
+            'rooster-planner',
+            'Verzuim',
+            'Verzuim',
+            'manage_options',
+            'rooster-planner-sick-report',
+            [$this, 'render_sick_report']
         );
         
         add_submenu_page(
@@ -264,6 +274,36 @@ class Admin {
             LIMIT 100");
         
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/chat.php';
+    }
+    
+    public function render_sick_report() {
+        global $wpdb;
+        
+        $employees = $wpdb->get_results("SELECT e.*, u.display_name 
+            FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE e.is_active = 1
+            ORDER BY u.display_name");
+        
+        $locations = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}rp_locations ORDER BY name");
+        
+        // Get upcoming shifts for selected employee (if any)
+        $selected_employee = isset($_GET['employee_id']) ? intval($_GET['employee_id']) : 0;
+        $upcoming_shifts = [];
+        if ($selected_employee) {
+            $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
+                "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
+                FROM {$wpdb->prefix}rp_schedules s
+                LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+                WHERE s.employee_id = %d AND s.work_date >= %s AND s.status IN ('scheduled', 'confirmed')
+                ORDER BY s.work_date ASC
+                LIMIT 30",
+                $selected_employee, current_time('Y-m-d')
+            ));
+        }
+        
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/admin/sick-report.php';
     }
     
     public function render_settings() {
@@ -453,6 +493,120 @@ class Admin {
                 
                 wp_redirect(admin_url('admin.php?page=rooster-planner-schedules&location=' . $location_id . '&month=' . $target_month . '&msg=duplicated'));
                 exit;
+        }
+    }
+    
+    public function handle_admin_sick_report() {
+        if (!current_user_can('manage_options')) {
+            wp_die('Geen toegang');
+        }
+        
+        check_admin_referer('rp_admin_action');
+        
+        global $wpdb;
+        
+        $employee_id = intval($_POST['employee_id']);
+        $schedule_ids = isset($_POST['schedule_ids']) ? array_map('intval', $_POST['schedule_ids']) : [];
+        $notes = sanitize_textarea_field($_POST['notes'] ?? '');
+        $send_push = isset($_POST['send_push_notifications']) ? 1 : 0;
+        
+        if (empty($employee_id) || empty($schedule_ids)) {
+            wp_redirect(admin_url('admin.php?page=rooster-planner-sick-report&error=no_selection'));
+            exit;
+        }
+        
+        // Get the date range from the selected schedules
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_schedules WHERE id IN (" . implode(',', array_fill(0, count($schedule_ids), '%d')) . ")",
+            $schedule_ids
+        ));
+        
+        if (empty($schedules)) {
+            wp_redirect(admin_url('admin.php?page=rooster-planner-sick-report&error=invalid_schedules'));
+            exit;
+        }
+        
+        $dates = array_column($schedules, 'work_date');
+        $start_date = min($dates);
+        $end_date = max($dates);
+        
+        // Insert sick report in timeoff table
+        $wpdb->insert($wpdb->prefix . 'rp_timeoff', [
+            'employee_id' => $employee_id,
+            'type' => 'sick',
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'notes' => $notes,
+            'status' => 'approved',
+            'created_by' => get_current_user_id(),
+            'created_at' => current_time('mysql')
+        ]);
+        
+        $timeoff_id = $wpdb->insert_id;
+        
+        // Cancel the selected schedules
+        foreach ($schedules as $schedule) {
+            $wpdb->update($wpdb->prefix . 'rp_schedules', [
+                'status' => 'cancelled',
+                'notes' => 'Ziekmelding: ' . $notes
+            ], ['id' => $schedule->id]);
+            
+            // Create swap request for each cancelled schedule
+            $wpdb->insert($wpdb->prefix . 'rp_shift_swaps', [
+                'schedule_id' => $schedule->id,
+                'requester_id' => $employee_id,
+                'requested_employee_id' => 0, // Open for anyone
+                'status' => 'pending',
+                'notes' => 'Vervanging nodig wegens ziekmelding: ' . $notes,
+                'requested_at' => current_time('mysql')
+            ]);
+        }
+        
+        // Send notifications if enabled
+        if ($send_push) {
+            $this->send_sick_report_notifications($employee_id, $schedules, $notes);
+        }
+        
+        wp_redirect(admin_url('admin.php?page=rooster-planner-sick-report&msg=sick_reported'));
+        exit;
+    }
+    
+    private function send_sick_report_notifications($employee_id, $schedules, $notes) {
+        global $wpdb;
+        
+        // Get employee name
+        $employee = $wpdb->get_row($wpdb->prepare(
+            "SELECT e.*, u.display_name FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE e.id = %d",
+            $employee_id
+        ));
+        
+        if (!$employee) return;
+        
+        // Get all active employees with push notifications enabled
+        $notify_employees = $wpdb->get_results(
+            "SELECT e.*, u.ID as user_id FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE e.is_active = 1 AND e.push_notifications = 1"
+        );
+        
+        $shift_info = '';
+        foreach ($schedules as $s) {
+            $shift_info .= date('d-m-Y', strtotime($s->work_date)) . ', ';
+        }
+        $shift_info = rtrim($shift_info, ', ');
+        
+        // Create notification for each employee
+        foreach ($notify_employees as $emp) {
+            $wpdb->insert($wpdb->prefix . 'rp_notifications', [
+                'user_id' => $emp->user_id,
+                'type' => 'sick_replacement_needed',
+                'title' => 'Vervanging nodig wegens ziekmelding',
+                'message' => $employee->display_name . ' is ziek gemeld voor: ' . $shift_info . ($notes ? '. Notities: ' . $notes : ''),
+                'is_read' => 0,
+                'created_at' => current_time('mysql')
+            ]);
         }
     }
     

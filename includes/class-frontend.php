@@ -346,6 +346,9 @@ class Frontend {
         // Get theme preference
         $theme_preference = $employee->theme_preference ?: 'light';
         
+        // Check if self sick reporting is enabled
+        $self_sick_enabled = get_option('rooster_planner_enable_self_sick_report', 1);
+        
         // Get upcoming shifts
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
