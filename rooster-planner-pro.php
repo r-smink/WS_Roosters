@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.4.5.2 
+ * Version: 1.4.6
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,9 +14,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.4.5.2');
+define('ROOSTER_PLANNER_VERSION', '1.4.6');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Composer autoload (for web-push etc.)
+$composer_autoload = ROOSTER_PLANNER_PLUGIN_DIR . 'vendor/autoload.php';
+if (file_exists($composer_autoload)) {
+    require_once $composer_autoload;
+}
 
 // Autoloader
 spl_autoload_register(function ($class) {
@@ -203,6 +209,18 @@ function rooster_planner_activate() {
         UNIQUE KEY employee_location_day (employee_id, location_id, day_of_week)
     ) $charset_collate;";
 
+    // Push subscriptions table (Web Push)
+    $sql_push_subscriptions = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}rp_push_subscriptions (
+        id bigint(20) NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) NOT NULL,
+        endpoint text NOT NULL,
+        p256dh varchar(255) DEFAULT NULL,
+        auth varchar(255) DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_id (user_id)
+    ) $charset_collate;";
+
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     
     dbDelta($sql_locations);
@@ -216,6 +234,7 @@ function rooster_planner_activate() {
     dbDelta($sql_chat);
     dbDelta($sql_notifications);
     dbDelta($sql_fixed_schedules);
+    dbDelta($sql_push_subscriptions);
 
     // Create frontend pages with shortcodes (no demo data)
     rooster_planner_create_pages();
@@ -532,6 +551,8 @@ function rooster_planner_register_settings() {
     register_setting('rooster_planner_options', 'rooster_planner_reminder_day');
     register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
+    register_setting('rooster_planner_options', 'rooster_planner_vapid_public');
+    register_setting('rooster_planner_options', 'rooster_planner_vapid_private');
     register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
     register_setting('rooster_planner_options', 'rooster_planner_enable_self_sick_report');
     register_setting('rooster_planner_options', 'rooster_planner_enable_dark_theme');
@@ -620,6 +641,7 @@ function rooster_planner_frontend_assets() {
     wp_enqueue_script('rooster-planner-js', ROOSTER_PLANNER_PLUGIN_URL . 'assets/js/frontend.js', ['jquery'], ROOSTER_PLANNER_VERSION, true);
     wp_localize_script('rooster-planner-js', 'rpAjax', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
+        'restUrl' => home_url('/wp-json/'),
         'nonce' => wp_create_nonce('rp_nonce'),
         'isLoggedIn' => is_user_logged_in(),
         'currentUserId' => get_current_user_id(),

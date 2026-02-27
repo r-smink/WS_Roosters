@@ -44,6 +44,7 @@ class Ajax {
         add_action('wp_ajax_rp_finalize_month', [$this, 'finalize_month']);
         add_action('wp_ajax_rp_regenerate_ical_token', [$this, 'regenerate_ical_token']);
         add_action('wp_ajax_rp_clear_calendar', [$this, 'clear_calendar']);
+        add_action('wp_ajax_rp_claim_swappable', [$this, 'claim_swappable']);
     }
     
     public function save_schedule() {
@@ -892,6 +893,88 @@ class Ajax {
             'is_swappable' => $new_status,
             'message' => $new_status ? 'Dienst is nu gemarkeerd als ruilbaar' : 'Dienst is niet meer ruilbaar'
         ]);
+    }
+
+    /**
+     * Claim (overnemen) een dienst die als ruilbaar staat
+     */
+    public function claim_swappable() {
+        check_ajax_referer('rp_nonce', 'nonce');
+
+        global $wpdb;
+
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+
+        $schedule_id = intval($_POST['schedule_id']);
+
+        // Haal dienst op en valideer
+        $schedule = $wpdb->get_row($wpdb->prepare(
+            "SELECT s.*, l.id as location_id
+             FROM {$wpdb->prefix}rp_schedules s
+             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+             WHERE s.id = %d",
+            $schedule_id
+        ));
+
+        if (!$schedule) {
+            wp_send_json_error('Dienst niet gevonden');
+        }
+
+        if ($schedule->employee_id == $employee->id) {
+            wp_send_json_error('Je kunt je eigen dienst niet overnemen.');
+        }
+
+        if (!$schedule->is_swappable) {
+            wp_send_json_error('Deze dienst is niet als ruilbaar gemarkeerd.');
+        }
+
+        // Controleer of medewerker toegang heeft tot locatie
+        $allowed_locations = $wpdb->get_col($wpdb->prepare(
+            "SELECT location_id FROM {$wpdb->prefix}rp_employee_locations WHERE employee_id = %d",
+            $employee->id
+        ));
+        if (!in_array(intval($schedule->location_id), array_map('intval', $allowed_locations))) {
+            wp_send_json_error('Je hebt geen toegang tot deze locatie.');
+        }
+
+        // Wissel dienst toe naar nieuwe medewerker
+        $wpdb->update($wpdb->prefix . 'rp_schedules', [
+            'employee_id'   => $employee->id,
+            'status'        => 'swapped',
+            'is_swappable'  => 0,
+            'updated_at'    => current_time('mysql')
+        ], ['id' => $schedule_id]);
+
+        // Log in swaps tabel (completed)
+        $wpdb->insert($wpdb->prefix . 'rp_shift_swaps', [
+            'schedule_id'           => $schedule_id,
+            'requester_id'          => $schedule->employee_id, // oorspronkelijke eigenaar
+            'requested_employee_id' => $employee->id,
+            'status'                => 'completed',
+            'reason'                => 'Dienst overgenomen via ruilbaar aanbod',
+            'requested_at'          => current_time('mysql'),
+            'responded_at'          => current_time('mysql')
+        ]);
+
+        // Notificaties
+        $this->create_notification($employee->user_id, 'swap_claimed_self',
+            'Dienst overgenomen',
+            'Je hebt de dienst op ' . date('d-m-Y', strtotime($schedule->work_date)) . ' overgenomen.');
+
+        $orig_user = $wpdb->get_var($wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
+            $schedule->employee_id
+        ));
+        if ($orig_user) {
+            $this->create_notification($orig_user, 'swap_claimed_other',
+                'Dienst is overgenomen',
+                'Je dienst op ' . date('d-m-Y', strtotime($schedule->work_date)) . ' is overgenomen.');
+        }
+
+        wp_send_json_success(['message' => 'Dienst succesvol overgenomen']);
     }
     
     /**

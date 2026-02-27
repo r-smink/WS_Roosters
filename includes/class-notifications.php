@@ -8,6 +8,7 @@ class Notifications {
         add_action('rp_daily_reminder', [$this, 'send_daily_reminders']);
         add_action('rp_availability_reminder', [$this, 'send_availability_reminders']);
         add_action('wp_footer', [$this, 'add_notification_bell']);
+        add_action('rest_api_init', [$this, 'register_rest']);
     }
     
     public function schedule_reminders() {
@@ -127,5 +128,109 @@ class Notifications {
             'message' => $message,
             'created_at' => current_time('mysql')
         ]);
+
+        // Fire web push to all subscriptions of this user
+        $this->send_web_push($user_id, $title, $message);
+    }
+
+    /**
+     * Web Push REST endpoints for subscription management
+     */
+    public function register_rest() {
+        register_rest_route('roosterplanner/v1', '/push/subscribe', [
+            'methods' => 'POST',
+            'callback' => [$this, 'rest_subscribe'],
+            'permission_callback' => function() { return is_user_logged_in(); }
+        ]);
+
+        register_rest_route('roosterplanner/v1', '/push/public-key', [
+            'methods' => 'GET',
+            'callback' => [$this, 'rest_public_key'],
+            'permission_callback' => '__return_true'
+        ]);
+    }
+
+    public function rest_public_key() {
+        $public_key = get_option('rooster_planner_vapid_public', '');
+        return ['publicKey' => $public_key];
+    }
+
+    public function rest_subscribe(\WP_REST_Request $request) {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        if (!$user_id) {
+            return new \WP_Error('not_logged_in', 'Login vereist', ['status' => 401]);
+        }
+
+        $endpoint = sanitize_text_field($request->get_param('endpoint'));
+        $p256dh = sanitize_text_field($request->get_param('p256dh'));
+        $auth = sanitize_text_field($request->get_param('auth'));
+
+        if (empty($endpoint) || empty($p256dh) || empty($auth)) {
+            return new \WP_Error('invalid_subscription', 'Incomplete subscription data', ['status' => 400]);
+        }
+
+        // Prevent duplicates
+        $exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_push_subscriptions WHERE user_id = %d AND endpoint = %s",
+            $user_id, $endpoint
+        ));
+        if ($exists) {
+            return ['status' => 'ok', 'message' => 'Subscription already stored'];
+        }
+
+        $wpdb->insert($wpdb->prefix . 'rp_push_subscriptions', [
+            'user_id' => $user_id,
+            'endpoint' => $endpoint,
+            'p256dh' => $p256dh,
+            'auth' => $auth,
+            'created_at' => current_time('mysql')
+        ]);
+
+        return ['status' => 'ok'];
+    }
+
+    /**
+     * Send web push using VAPID keys (if configured)
+     */
+    private function send_web_push($user_id, $title, $message) {
+        $public = get_option('rooster_planner_vapid_public', '');
+        $private = get_option('rooster_planner_vapid_private', '');
+        if (empty($public) || empty($private)) {
+            return; // Push disabled until keys set
+        }
+
+        if (!class_exists('\\Minishlink\\WebPush\\WebPush')) {
+            return; // Library not loaded
+        }
+
+        global $wpdb;
+        $subs = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_push_subscriptions WHERE user_id = %d",
+            $user_id
+        ));
+        if (empty($subs)) return;
+
+        $auth = [
+            'VAPID' => [
+                'subject' => get_site_url(),
+                'publicKey' => $public,
+                'privateKey' => $private,
+            ],
+        ];
+        $webPush = new \Minishlink\\WebPush\\WebPush($auth);
+        foreach ($subs as $sub) {
+            $subscription = \Minishlink\\WebPush\\Subscription::create([
+                'endpoint' => $sub->endpoint,
+                'publicKey' => $sub->p256dh,
+                'authToken' => $sub->auth,
+            ]);
+            $payload = json_encode(['title' => $title, 'message' => $message]);
+            $webPush->queueNotification($subscription, $payload);
+        }
+        // Send without blocking
+        foreach ($webPush->flush() as $report) {
+            // Silently ignore failures; could log if needed
+        }
     }
 }

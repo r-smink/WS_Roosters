@@ -225,22 +225,20 @@ function takeShift(scheduleId, currentHolder) {
     const confirmed = confirm('Weet je zeker dat je deze dienst wilt overnemen van ' + currentHolder + '?');
     if (!confirmed) return;
     
-    // Create a swap request to take over the shift
     jQuery.ajax({
         url: rpAjax.ajaxUrl,
         type: 'POST',
         data: {
-            action: 'rp_request_swap',
+            action: 'rp_claim_swappable',
             nonce: rpAjax.nonce,
-            schedule_id: scheduleId,
-            reason: 'Ik wil deze dienst overnemen'
+            schedule_id: scheduleId
         },
         success: function(response) {
             if (response.success) {
-                alert('Verzoek om dienst over te nemen is ingediend! De planner moet dit goedkeuren.');
+                alert('Dienst overgenomen! Het rooster is bijgewerkt.');
                 location.reload();
             } else {
-                alert('Er is iets misgegaan.');
+                alert('Er is iets misgegaan: ' + response.data);
             }
         }
     });

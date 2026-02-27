@@ -256,6 +256,7 @@ class Frontend {
                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
                 WHERE s.employee_id != %d AND s.work_date >= %s 
                 AND s.status IN ('scheduled', 'confirmed') AND s.location_id IN ($placeholders)
+                AND s.status != 'swapped'
                 AND s.is_swappable = 1
                 AND s.id NOT IN (SELECT schedule_id FROM {$wpdb->prefix}rp_shift_swaps WHERE status = 'pending')
                 ORDER BY s.work_date ASC

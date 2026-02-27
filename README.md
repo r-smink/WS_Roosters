@@ -111,6 +111,8 @@ De plugin biedt nu JSON endpoints voor een native Android/iOS app onder `/wp-jso
 
 **Authenticatie:** gebruik een WordPress *Application Password* per medewerker en Basic Auth. De huidige gebruiker wordt automatisch bepaald; er is geen aparte login route nodig.
 
+**Web Push:** installeer composer-dependency `minishlink/web-push` en zet VAPID keys in de plugin-instellingen (Rooster Planner → Instellingen → Push & PWA). Zonder deze stap worden push notificaties niet verstuurd.
+
 **Beschikbare routes**
 - `GET /me` — basisprofiel + gekoppelde locaties
 - `GET /locations` — locaties waar de medewerker toegang toe heeft

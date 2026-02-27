@@ -97,7 +97,54 @@
     </div>
     
     <div class="rp-section">
-        <h2>� PWA (Progressive Web App) Instellingen</h2>
+        <h2>🔔 Push & PWA Instellingen</h2>
+        <form method="post" action="options.php" class="rp-form">
+            <?php settings_fields('rooster_planner_options'); ?>
+            
+            <table class="form-table">
+                <tr>
+                    <th><label for="rp_push_notifications">Push Notificaties</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_push_notifications" name="rooster_planner_push_notifications" value="1" <?php checked(get_option('rooster_planner_push_notifications', 1)); ?>>
+                            Schakel push notificaties in (browser + PWA)
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_vapid_public">VAPID Public Key</label></th>
+                    <td>
+                        <input type="text" id="rp_vapid_public" name="rooster_planner_vapid_public" value="<?php echo esc_attr(get_option('rooster_planner_vapid_public', '')); ?>" class="regular-text">
+                        <p class="description">Nodig voor Web Push. Genereer een paar met de knop hieronder.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_vapid_private">VAPID Private Key</label></th>
+                    <td>
+                        <input type="text" id="rp_vapid_private" name="rooster_planner_vapid_private" value="<?php echo esc_attr(get_option('rooster_planner_vapid_private', '')); ?>" class="regular-text">
+                    </td>
+                </tr>
+            </table>
+            
+            <p class="submit">
+                <button type="submit" class="button button-primary">Push instellingen opslaan</button>
+            </p>
+        </form>
+
+        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" style="margin-top:10px;">
+            <input type="hidden" name="rp_action" value="generate_vapid_keys">
+            <?php wp_nonce_field('rp_admin_action'); ?>
+            <button type="submit" class="button">Genereer nieuwe VAPID sleutels</button>
+            <?php if (isset($_GET['msg']) && $_GET['msg'] === 'vapid_generated'): ?>
+                <span class="notice notice-success" style="padding:6px 10px;display:inline-block;">✅ Sleutels vernieuwd</span>
+            <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'vapid_missing_lib'): ?>
+                <span class="notice notice-error" style="padding:6px 10px;display:inline-block;">⚠️ Library Minishlink/web-push ontbreekt (run composer install)</span>
+            <?php endif; ?>
+        </form>
+
+        <hr>
+
+        <h2>📱 PWA (Progressive Web App) Instellingen</h2>
         <form method="post" action="options.php" class="rp-form">
             <?php settings_fields('rooster_planner_pwa_options'); ?>
             

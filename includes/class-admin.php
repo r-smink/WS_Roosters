@@ -371,6 +371,18 @@ class Admin {
                 $wpdb->delete($wpdb->prefix . 'rp_shifts', ['id' => $id]);
                 wp_redirect(admin_url('admin.php?page=rooster-planner-locations&msg=shift_deleted'));
                 exit;
+
+            case 'generate_vapid_keys':
+                check_admin_referer('rp_admin_action');
+                if (!class_exists('\\Minishlink\\WebPush\\VAPID')) {
+                    wp_redirect(admin_url('admin.php?page=rooster-planner-settings&msg=vapid_missing_lib'));
+                    exit;
+                }
+                $keys = \Minishlink\WebPush\VAPID::createVapidKeys();
+                update_option('rooster_planner_vapid_public', $keys['publicKey']);
+                update_option('rooster_planner_vapid_private', $keys['privateKey']);
+                wp_redirect(admin_url('admin.php?page=rooster-planner-settings&msg=vapid_generated'));
+                exit;
                 
             case 'add_employee':
                 check_admin_referer('rp_admin_action');

@@ -9,6 +9,7 @@
     $(document).ready(function() {
         initNotifications();
         initChatPolling();
+        initServiceWorker();
     });
 
     /**
@@ -112,6 +113,62 @@
         } else {
             $badge.remove();
         }
+    }
+
+    /**
+     * Service worker + push subscription
+     */
+    function initServiceWorker() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        navigator.serviceWorker.register(rpAjax.pluginUrl + 'assets/js/sw.js').then(function(reg) {
+            // Request permission then subscribe
+            if (Notification.permission === 'granted') {
+                subscribePush(reg);
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === 'granted') {
+                        subscribePush(reg);
+                    }
+                });
+            }
+        });
+    }
+
+    function subscribePush(registration) {
+        fetch(rpAjax.restUrl + 'roosterplanner/v1/push/public-key')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.publicKey) return;
+                const convertedKey = urlBase64ToUint8Array(data.publicKey);
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedKey
+                });
+            })
+            .then(subscription => {
+                if (!subscription) return;
+                const keys = subscription.toJSON().keys;
+                $.post(rpAjax.restUrl + 'roosterplanner/v1/push/subscribe', {
+                    endpoint: subscription.endpoint,
+                    p256dh: keys.p256dh,
+                    auth: keys.auth
+                });
+            })
+            .catch(function(err) {
+                console.warn('Push subscribe failed', err);
+            });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     }
 
     /**
