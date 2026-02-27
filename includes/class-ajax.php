@@ -302,22 +302,39 @@ class Ajax {
         
         $swap_id = $wpdb->insert_id;
         
-        // Send notification to requested employee or all admin
+        // Info for notifications
+        $shift = $wpdb->get_row($wpdb->prepare(
+            "SELECT sh.name as shift_name, s.work_date, sh.start_time, sh.end_time
+             FROM {$wpdb->prefix}rp_schedules s
+             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+             WHERE s.id = %d",
+            $schedule_id
+        ));
+        $requester_user = get_user_by('id', $employee->user_id);
+        $requester_name = $requester_user ? $requester_user->display_name : 'Een collega';
+        $shift_text = $shift ? ($shift->shift_name . ' op ' . date('d-m-Y', strtotime($shift->work_date)) . ' (' . substr($shift->start_time,0,5) . '-' . substr($shift->end_time,0,5) . ')') : 'een dienst';
+
+        // Send notification naar specifieke collega (als gekozen)
         if ($requested_employee_id) {
             $target_employee = $wpdb->get_row($wpdb->prepare(
                 "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
                 $requested_employee_id
             ));
             if ($target_employee) {
-                $this->create_notification($target_employee->user_id, 'swap_request',
-                    'Dienst ruil verzoek',
-                    'Iemand wil een dienst met je ruilen. Bekijk het verzoek in de app.'
+                $this->create_notification(
+                    $target_employee->user_id,
+                    'swap_request',
+                    'Ruilverzoek: ' . $shift_text,
+                    $requester_name . ' vraagt of jij deze dienst wilt overnemen/ruilen. Open de pagina Ruilen om te reageren.'
                 );
             }
         }
         
-        // Notify admins
-        $this->notify_admins('Nieuw ruilverzoek', 'Er is een nieuw dienst ruilverzoek ingediend.');
+        // Notify admins met details (handig in backend)
+        $this->notify_admins(
+            'Nieuw ruilverzoek',
+            $requester_name . ' heeft een ruilverzoek ingediend voor ' . $shift_text . '.'
+        );
         
         wp_send_json_success(['swap_id' => $swap_id]);
     }

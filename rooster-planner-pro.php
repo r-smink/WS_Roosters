@@ -252,6 +252,13 @@ function rooster_planner_activate() {
 function rooster_planner_run_upgrades() {
     global $wpdb;
     $installed_version = get_option('rooster_planner_version', '1.0.0');
+
+    // Ensure is_swappable column exists (safety for older installs)
+    $schedules_columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_schedules", 0);
+    if ($schedules_columns && !in_array('is_swappable', $schedules_columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN is_swappable tinyint(1) DEFAULT 0 AFTER status");
+        $wpdb->query("CREATE INDEX is_swappable_idx ON {$wpdb->prefix}rp_schedules (is_swappable)");
+    }
     
     // Add worked hours columns to schedules table (version 1.3.0+)
     if (version_compare($installed_version, '1.3.0', '<')) {

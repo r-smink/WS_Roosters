@@ -135,19 +135,21 @@
 <div id="swap-modal" class="rp-modal" style="display:none;">
     <div class="rp-modal-content">
         <h2>Dienst Ruilen</h2>
-        <p id="swap-shift-info"></p>
-        <form id="swap-form">
-            <p>
-                <label>Specifieke medewerker vragen (optioneel):</label>
+            <p id="swap-shift-info"></p>
+            <form id="swap-form">
+                <p>
+                    <label>Specifieke medewerker vragen (optioneel):</label>
                 <select id="requested_employee" name="requested_employee">
                     <option value="">Iedereen mag reageren</option>
-                    <?php foreach ($employees as $emp): 
-                        if ($emp->id != $employee->id):
-                    ?>
-                    <option value="<?php echo $emp->id; ?>"><?php echo esc_html($emp->display_name); ?></option>
-                    <?php endif; endforeach; ?>
+                    <?php if (!empty($employees)): ?>
+                        <?php foreach ($employees as $emp): ?>
+                            <option value="<?php echo $emp->id; ?>"><?php echo esc_html($emp->display_name); ?></option>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <option value="" disabled>Geen collega's gevonden op jouw locaties</option>
+                    <?php endif; ?>
                 </select>
-            </p>
+                </p>
             <p>
                 <label>Reden (optioneel):</label>
                 <textarea id="swap_reason" rows="3" placeholder="Waarom wil je deze dienst ruilen?"></textarea>

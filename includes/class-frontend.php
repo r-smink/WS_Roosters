@@ -292,6 +292,24 @@ class Frontend {
             ORDER BY sw.requested_at DESC",
             $employee->id
         ));
+
+        // Collega's op dezelfde locaties voor gerichte ruilaanvraag
+        $employees = [];
+        if (!empty($my_locations)) {
+            $placeholders = implode(',', array_fill(0, count($my_locations), '%d'));
+            $employees = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id, u.display_name, u.user_email
+                 FROM {$wpdb->prefix}rp_employees e
+                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                 LEFT JOIN {$wpdb->prefix}rp_employee_locations el ON el.employee_id = e.id
+                 WHERE e.is_active = 1
+                   AND el.location_id IN ($placeholders)
+                   AND e.id != %d
+                 GROUP BY e.id
+                 ORDER BY u.display_name ASC",
+                array_merge($my_locations, [$employee->id])
+            ));
+        }
         
         ob_start();
         echo '<div class="rp-container rp-ruilen' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';

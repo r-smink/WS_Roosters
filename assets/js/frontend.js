@@ -175,6 +175,8 @@
      * Chat Polling
      */
     function initChatPolling() {
+        // Skip when chat page handles polling itself
+        if (window.rpChatInline) return;
         // Only on chat page
         if (!$('.rp-chat-wrapper').length) return;
         
