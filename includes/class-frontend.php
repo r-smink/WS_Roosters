@@ -516,6 +516,7 @@ class Frontend {
             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
             WHERE s.employee_id = %d AND s.work_date BETWEEN %s AND %s
+            AND s.status != 'cancelled'
             GROUP BY s.id
             ORDER BY s.work_date, sh.start_time",
             $employee_id, $start_date, $end_date
@@ -537,6 +538,7 @@ class Frontend {
             LEFT JOIN {$wpdb->prefix}rp_employees e ON s.employee_id = e.id
             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
             WHERE s.location_id = %d AND s.work_date BETWEEN %s AND %s
+            AND s.status != 'cancelled'
             GROUP BY s.id
             ORDER BY s.work_date, sh.start_time",
             $location_id, $start_date, $end_date
@@ -548,6 +550,19 @@ class Frontend {
         $days_in_month = date('t', $first_day);
         $start_weekday = date('w', $first_day); // 0 = Sunday
         
+        // Deduplicate schedules by ID to avoid double rendering when the same
+        // record is pulled twice via joins or overlapping queries.
+        $unique = [];
+        $deduped = [];
+        foreach ($schedules as $schedule) {
+            if (isset($unique[$schedule->id])) {
+                continue;
+            }
+            $unique[$schedule->id] = true;
+            $deduped[] = $schedule;
+        }
+        $schedules = $deduped;
+
         $calendar = [];
         
         // Empty cells before first day
