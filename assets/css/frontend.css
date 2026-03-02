@@ -445,30 +445,242 @@
 
 /* Mobile Optimizations */
 @media (max-width: 768px) {
+    .rp-container {
+        padding: 10px !important;
+        max-width: 100% !important;
+        overflow-x: hidden;
+    }
+    
     .rp-notification-bell {
         top: auto;
         bottom: 20px;
         right: 20px;
+        width: 56px;
+        height: 56px;
     }
     
     .rp-notification-panel {
         top: auto;
-        bottom: 80px;
-        right: 20px;
-        left: 20px;
+        bottom: 90px;
+        right: 10px;
+        left: 10px;
         width: auto;
+        max-height: 60vh;
     }
     
     .rp-btn {
         padding: 14px 20px;
         font-size: 16px;
+        min-height: 48px;
+    }
+    
+    /* Header mobile styles */
+    .rp-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .rp-header h1 {
+        font-size: 1.4rem;
+        margin: 0;
+    }
+    
+    .rp-header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .rp-header-actions .rp-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Dashboard grid mobile */
+    .rp-dashboard-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px;
+    }
+    
+    .rp-card {
+        padding: 15px;
+    }
+    
+    .rp-card h2 {
+        font-size: 16px;
+    }
+    
+    /* Action grid - 2 columns on mobile */
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px;
+    }
+    
+    .rp-action-item {
+        padding: 12px 8px;
+    }
+    
+    .rp-icon {
+        font-size: 20px;
+    }
+    
+    .rp-action-item span:last-child {
+        font-size: 12px;
+        text-align: center;
+    }
+    
+    /* Shift items mobile */
+    .rp-shift-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+    }
+    
+    .rp-shift-actions {
+        width: 100%;
+    }
+    
+    .rp-shift-actions .rp-btn {
+        width: 100%;
+        text-align: center;
+    }
+    
+    /* Availability calendar mobile */
+    .rp-calendar-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px;
+    }
+    
+    .rp-calendar {
+        min-width: 700px;
+    }
+    
+    .rp-calendar-header {
+        min-width: 700px;
+    }
+    
+    .rp-day {
+        min-height: 100px;
+        padding: 4px;
+    }
+    
+    .rp-toggle-text {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+    }
+    
+    .rp-shift-pref, .rp-notes {
+        font-size: 11px;
+        padding: 3px;
+    }
+    
+    .rp-location-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .rp-tab {
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+    
+    .rp-info-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+    }
+    
+    .rp-form-actions {
+        flex-direction: column;
+        width: 100%;
+        padding: 15px;
+    }
+    
+    .rp-form-actions .rp-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .rp-instructions {
+        padding: 15px;
+    }
+    
+    .rp-instructions h3 {
+        font-size: 14px;
+    }
+    
+    .rp-instructions li {
+        font-size: 13px;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .rp-container {
+        padding: 8px !important;
+    }
+    
+    .rp-header h1 {
+        font-size: 1.2rem;
+    }
+    
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    
+    .rp-action-item {
+        padding: 10px 6px;
+    }
+    
+    .rp-icon {
+        font-size: 18px;
+    }
+    
+    .rp-shift-date {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        min-width: auto;
+    }
+    
+    .rp-day {
+        font-size: 18px;
+    }
+    
+    .rp-month {
+        font-size: 11px;
+    }
+    
+    .rp-shift-info h4 {
+        font-size: 14px;
+    }
+    
+    .rp-shift-time, .rp-shift-location {
+        font-size: 12px;
+    }
+    
+    .rp-alert {
+        padding: 12px;
+    }
+    
+    .rp-alert strong {
+        font-size: 14px;
+    }
+    
+    .rp-alert p {
+        font-size: 13px;
     }
 }
 
 /* Touch-friendly */
 @media (hover: none) and (pointer: coarse) {
     .rp-btn {
-        min-height: 44px;
+        min-height: 48px;
+        min-width: 48px;
     }
     
     .rp-day {
@@ -476,7 +688,17 @@
     }
     
     input, select, textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
+        font-size: 16px;
+        padding: 10px;
+    }
+    
+    .rp-toggle-text {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .rp-shift-pref, .rp-notes {
+        min-height: 36px;
     }
 }
 

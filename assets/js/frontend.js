@@ -9,6 +9,7 @@
     $(document).ready(function() {
         initNotifications();
         initChatPolling();
+        initServiceWorker();
     });
 
     /**
@@ -69,8 +70,18 @@
         let html = '<div class="rp-notification-list">';
         notifications.forEach(function(n) {
             const isUnread = !n.is_read ? 'rp-unread' : '';
+            let targetUrl = rpAjax.homeUrl + 'medewerker-dashboard/';
+            if (n.type === 'announcement' || n.type === 'admin_notice') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-berichten/';
+            } else if (n.type === 'swap_request' || n.type === 'swap_response' || n.type === 'swap_claimed_other' || n.type === 'swap_claimed_self' || n.type === 'replacement_needed') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-ruilen/';
+            } else if (n.type === 'timeoff' || n.type === 'timeoff_decision') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-verlof/';
+            } else if (n.type === 'availability_reminder') {
+                targetUrl = rpAjax.homeUrl + 'medewerker-beschikbaarheid/';
+            }
             html += `
-                <div class="rp-notification-item ${isUnread}" data-id="${n.id}">
+                <div class="rp-notification-item ${isUnread}" data-id="${n.id}" data-url="${targetUrl}">
                     <div class="rp-notification-title">${escapeHtml(n.title)}</div>
                     <div class="rp-notification-message">${escapeHtml(n.message)}</div>
                     <div class="rp-notification-time">${formatDate(n.created_at)}</div>
@@ -81,11 +92,13 @@
         
         $panel.html(html);
         
-        // Mark as read on click
+        // Mark as read on click + nav to berichten
         $panel.find('.rp-notification-item').on('click', function() {
             const id = $(this).data('id');
+            const url = $(this).data('url');
             markAsRead(id);
             $(this).removeClass('rp-unread');
+            window.location.href = url || rpAjax.pluginUrl + 'medewerker-berichten/';
         });
     }
 
@@ -115,9 +128,67 @@
     }
 
     /**
+     * Service worker + push subscription
+     */
+    function initServiceWorker() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        navigator.serviceWorker.register(rpAjax.pluginUrl + 'assets/js/sw.js').then(function(reg) {
+            // Request permission then subscribe
+            if (Notification.permission === 'granted') {
+                subscribePush(reg);
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(function(permission) {
+                    if (permission === 'granted') {
+                        subscribePush(reg);
+                    }
+                });
+            }
+        });
+    }
+
+    function subscribePush(registration) {
+        fetch(rpAjax.restUrl + 'roosterplanner/v1/push/public-key')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.publicKey) return;
+                const convertedKey = urlBase64ToUint8Array(data.publicKey);
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedKey
+                });
+            })
+            .then(subscription => {
+                if (!subscription) return;
+                const keys = subscription.toJSON().keys;
+                $.post(rpAjax.restUrl + 'roosterplanner/v1/push/subscribe', {
+                    endpoint: subscription.endpoint,
+                    p256dh: keys.p256dh,
+                    auth: keys.auth
+                });
+            })
+            .catch(function(err) {
+                console.warn('Push subscribe failed', err);
+            });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    /**
      * Chat Polling
      */
     function initChatPolling() {
+        // Skip when chat page handles polling itself
+        if (window.rpChatInline) return;
         // Only on chat page
         if (!$('.rp-chat-wrapper').length) return;
         

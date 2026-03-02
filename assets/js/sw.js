@@ -3,10 +3,10 @@
  */
 
 self.addEventListener('push', function(event) {
-    const data = event.data.json();
+    const data = event.data ? event.data.json() : {};
     
     const options = {
-        body: data.message,
+        body: data.message || '',
         icon: '/wp-content/plugins/rooster-planner-pro/assets/images/icon-192x192.png',
         badge: '/wp-content/plugins/rooster-planner-pro/assets/images/badge-72x72.png',
         tag: data.tag || 'rooster-planner',
@@ -24,17 +24,19 @@ self.addEventListener('push', function(event) {
     };
     
     event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        self.registration.showNotification(data.title || 'Rooster Planner', {
+            ...options,
+            data: { url: data.url || '/medewerker-dashboard/' }
+        })
     );
 });
 
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/medewerker-dashboard/';
     if (event.action === 'open' || !event.action) {
-        event.waitUntil(
-            clients.openWindow('/medewerker-dashboard/')
-        );
+        event.waitUntil(clients.openWindow(targetUrl));
     }
 });
 

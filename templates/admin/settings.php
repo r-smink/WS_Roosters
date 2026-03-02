@@ -72,6 +72,16 @@
                     </td>
                 </tr>
                 <tr>
+                    <th><label for="rp_enable_self_sick_report">Zelf Ziekmelden</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_enable_self_sick_report" name="rooster_planner_enable_self_sick_report" value="1" <?php checked(get_option('rooster_planner_enable_self_sick_report', 1)); ?>>
+                            Sta medewerkers toe om zichzelf ziek te melden
+                        </label>
+                        <p class="description">Wanneer uitgeschakeld kunnen medewerkers alleen bellen naar de teamleider. Teamleiders kunnen dan ziekmeldingen doen via de Verzuim pagina.</p>
+                    </td>
+                </tr>
+                <tr>
                     <th><label for="rp_custom_css">Aangepaste CSS</label></th>
                     <td>
                         <textarea id="rp_custom_css" name="rooster_planner_custom_css" rows="10" class="large-text code"><?php echo esc_textarea(get_option('rooster_planner_custom_css', '')); ?></textarea>
@@ -87,7 +97,54 @@
     </div>
     
     <div class="rp-section">
-        <h2>� PWA (Progressive Web App) Instellingen</h2>
+        <h2>🔔 Push & PWA Instellingen</h2>
+        <form method="post" action="options.php" class="rp-form">
+            <?php settings_fields('rooster_planner_options'); ?>
+            
+            <table class="form-table">
+                <tr>
+                    <th><label for="rp_push_notifications">Push Notificaties</label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" id="rp_push_notifications" name="rooster_planner_push_notifications" value="1" <?php checked(get_option('rooster_planner_push_notifications', 1)); ?>>
+                            Schakel push notificaties in (browser + PWA)
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_vapid_public">VAPID Public Key</label></th>
+                    <td>
+                        <input type="text" id="rp_vapid_public" name="rooster_planner_vapid_public" value="<?php echo esc_attr(get_option('rooster_planner_vapid_public', '')); ?>" class="regular-text">
+                        <p class="description">Nodig voor Web Push. Genereer een paar met de knop hieronder.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="rp_vapid_private">VAPID Private Key</label></th>
+                    <td>
+                        <input type="text" id="rp_vapid_private" name="rooster_planner_vapid_private" value="<?php echo esc_attr(get_option('rooster_planner_vapid_private', '')); ?>" class="regular-text">
+                    </td>
+                </tr>
+            </table>
+            
+            <p class="submit">
+                <button type="submit" class="button button-primary">Push instellingen opslaan</button>
+            </p>
+        </form>
+
+        <form method="post" action="<?php echo admin_url('admin-post.php'); ?>" style="margin-top:10px;">
+            <input type="hidden" name="rp_action" value="generate_vapid_keys">
+            <?php wp_nonce_field('rp_admin_action'); ?>
+            <button type="submit" class="button">Genereer nieuwe VAPID sleutels</button>
+            <?php if (isset($_GET['msg']) && $_GET['msg'] === 'vapid_generated'): ?>
+                <span class="notice notice-success" style="padding:6px 10px;display:inline-block;">✅ Sleutels vernieuwd</span>
+            <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'vapid_missing_lib'): ?>
+                <span class="notice notice-error" style="padding:6px 10px;display:inline-block;">⚠️ Library Minishlink/web-push ontbreekt (run composer install)</span>
+            <?php endif; ?>
+        </form>
+
+        <hr>
+
+        <h2>📱 PWA (Progressive Web App) Instellingen</h2>
         <form method="post" action="options.php" class="rp-form">
             <?php settings_fields('rooster_planner_pwa_options'); ?>
             
@@ -95,35 +152,35 @@
                 <tr>
                     <th><label for="rp_pwa_app_name">App Naam</label></th>
                     <td>
-                        <input type="text" id="rp_pwa_app_name" name="rooster_planner_pwa_options[app_name]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_name', 'Rooster Planner')); ?>" class="regular-text">
+                        <input type="text" id="rp_pwa_app_name" name="rooster_planner_pwa_app_name" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_name', 'Rooster Planner')); ?>" class="regular-text">
                         <p class="description">Naam die op het app icoon en in de browser wordt getoond.</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="rp_pwa_app_short_name">Korte Naam</label></th>
                     <td>
-                        <input type="text" id="rp_pwa_app_short_name" name="rooster_planner_pwa_options[app_short_name]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_short_name', 'Rooster')); ?>" class="regular-text">
+                        <input type="text" id="rp_pwa_app_short_name" name="rooster_planner_pwa_app_short_name" value="<?php echo esc_attr(get_option('rooster_planner_pwa_app_short_name', 'Rooster')); ?>" class="regular-text">
                         <p class="description">Verkorte naam voor op het startscherm (max 12 tekens).</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="rp_pwa_theme_color">Thema Kleur</label></th>
                     <td>
-                        <input type="color" id="rp_pwa_theme_color" name="rooster_planner_pwa_options[theme_color]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_theme_color', '#4F46E5')); ?>">
+                        <input type="color" id="rp_pwa_theme_color" name="rooster_planner_pwa_theme_color" value="<?php echo esc_attr(get_option('rooster_planner_pwa_theme_color', '#4F46E5')); ?>">
                         <p class="description">Hoofdkleur voor de browser toolbar en splash screen.</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="rp_pwa_background_color">Achtergrond Kleur</label></th>
                     <td>
-                        <input type="color" id="rp_pwa_background_color" name="rooster_planner_pwa_options[background_color]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_background_color', '#ffffff')); ?>">
+                        <input type="color" id="rp_pwa_background_color" name="rooster_planner_pwa_background_color" value="<?php echo esc_attr(get_option('rooster_planner_pwa_background_color', '#ffffff')); ?>">
                         <p class="description">Achtergrondkleur voor splash screen.</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="rp_pwa_icon_192">App Icoon (192x192)</label></th>
                     <td>
-                        <input type="url" id="rp_pwa_icon_192" name="rooster_planner_pwa_options[icon_192]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_192')); ?>" class="regular-text" placeholder="https://...">
+                        <input type="url" id="rp_pwa_icon_192" name="rooster_planner_pwa_icon_192" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_192')); ?>" class="regular-text" placeholder="https://...">
                         <button type="button" class="button" onclick="rpMediaUploader('rp_pwa_icon_192')">Kies afbeelding</button>
                         <?php if (get_option('rooster_planner_pwa_icon_192')): ?>
                         <br><img src="<?php echo esc_url(get_option('rooster_planner_pwa_icon_192')); ?>" style="max-width:64px;margin-top:10px;">
@@ -133,7 +190,7 @@
                 <tr>
                     <th><label for="rp_pwa_icon_512">App Icoon (512x512)</label></th>
                     <td>
-                        <input type="url" id="rp_pwa_icon_512" name="rooster_planner_pwa_options[icon_512]" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_512')); ?>" class="regular-text" placeholder="https://...">
+                        <input type="url" id="rp_pwa_icon_512" name="rooster_planner_pwa_icon_512" value="<?php echo esc_attr(get_option('rooster_planner_pwa_icon_512')); ?>" class="regular-text" placeholder="https://...">
                         <button type="button" class="button" onclick="rpMediaUploader('rp_pwa_icon_512')">Kies afbeelding</button>
                         <?php if (get_option('rooster_planner_pwa_icon_512')): ?>
                         <br><img src="<?php echo esc_url(get_option('rooster_planner_pwa_icon_512')); ?>" style="max-width:64px;margin-top:10px;">

@@ -53,91 +53,213 @@
         <?php endif; ?>
     </div>
     
+    <div class="rp-display-toggle">
+        <button type="button" class="rp-btn rp-btn-small rp-btn-secondary" onclick="toggleViewMode('calendar')" id="btn-calendar-view">
+            📅 Kalender
+        </button>
+        <button type="button" class="rp-btn rp-btn-small rp-btn-secondary" onclick="toggleViewMode('list')" id="btn-list-view">
+            📋 Lijst
+        </button>
+    </div>
+    
     <form id="availability-form" class="rp-availability-form">
-        <div class="rp-calendar-wrapper">
-            <div class="rp-calendar-header">
-                <div class="rp-weekday">Zo</div>
-                <div class="rp-weekday">Ma</div>
-                <div class="rp-weekday">Di</div>
-                <div class="rp-weekday">Wo</div>
-                <div class="rp-weekday">Do</div>
-                <div class="rp-weekday">Vr</div>
-                <div class="rp-weekday">Za</div>
-            </div>
-            <div class="rp-calendar">
-                <?php foreach ($calendar as $day): ?>
-                <?php if ($day['type'] === 'empty'): ?>
-                <div class="rp-day rp-empty"></div>
-                <?php else: 
-                    $weekend_class = in_array($day['weekday'], [0, 6]) ? 'rp-weekend' : '';
-                    $today_class = $day['is_today'] ? 'rp-today' : '';
-                    $has_data = $day['availability'] !== null;
-                    $is_available = $day['is_available'];
-                    
-                    // Determine the correct cell class based on data state
-                    if (!$has_data) {
-                        $cell_class = 'rp-no-data';
-                    } elseif ($is_available) {
-                        $cell_class = 'rp-available';
-                    } else {
-                        $cell_class = 'rp-unavailable';
-                    }
-                ?>
-                <div class="rp-day <?php echo $weekend_class . ' ' . $today_class; ?>" data-date="<?php echo $day['date']; ?>">
-                    <div class="rp-day-header">
-                        <span class="rp-day-number"><?php echo $day['day']; ?></span>
-                    </div>
-                    <div class="rp-day-cell <?php echo $cell_class; ?>">
-                        <label class="rp-availability-toggle">
-                            <input type="checkbox" 
-                                   class="rp-avail-check" 
-                                   data-date="<?php echo $day['date']; ?>"
-                                   <?php echo $has_data && $is_available ? 'checked' : ''; ?>
-                                   <?php echo $is_after_deadline ? 'disabled' : ''; ?>>
-                            <span class="rp-toggle-text">
-                                <?php echo ($has_data && $is_available) ? '✓' : (($has_data && !$is_available) ? '✗' : '?'); ?>
-                            </span>
-                        </label>
+        <!-- Calendar View -->
+        <div id="calendar-view" class="rp-view-container">
+            <div class="rp-calendar-wrapper">
+                <div class="rp-calendar-header">
+                    <div class="rp-weekday">Zo</div>
+                    <div class="rp-weekday">Ma</div>
+                    <div class="rp-weekday">Di</div>
+                    <div class="rp-weekday">Wo</div>
+                    <div class="rp-weekday">Do</div>
+                    <div class="rp-weekday">Vr</div>
+                    <div class="rp-weekday">Za</div>
+                </div>
+                <div class="rp-calendar">
+                    <?php foreach ($calendar as $day): ?>
+                    <?php if ($day['type'] === 'empty'): ?>
+                    <div class="rp-day rp-empty"></div>
+                    <?php else: 
+                        $weekend_class = in_array($day['weekday'], [0, 6]) ? 'rp-weekend' : '';
+                        $today_class = $day['is_today'] ? 'rp-today' : '';
+                        $has_data = $day['availability'] !== null;
+                        $is_available = $day['is_available'];
                         
-                        <?php if (!$is_after_deadline): ?>
-                        <select class="rp-shift-pref" data-date="<?php echo $day['date']; ?>">
-                            <option value="">Geen voorkeur</option>
-                            <?php foreach ($shifts as $shift): ?>
-                            <option value="<?php echo $shift->id; ?>" 
-                                    <?php selected($day['shift_preference'], $shift->id); ?>>
-                                <?php echo esc_html($shift->name); ?> (<?php echo substr($shift->start_time, 0, 5); ?>)
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                        
-                        <div class="rp-custom-time">
-                            <label class="rp-time-label">Of eigen tijd:</label>
-                            <div class="rp-time-inputs">
-                                <input type="time" 
-                                       class="rp-time-from" 
+                        // Determine the correct cell class based on data state
+                        if (!$has_data) {
+                            $cell_class = 'rp-no-data';
+                        } elseif ($is_available) {
+                            $cell_class = 'rp-available';
+                        } else {
+                            $cell_class = 'rp-unavailable';
+                        }
+                    ?>
+                    <div class="rp-day <?php echo $weekend_class . ' ' . $today_class; ?>" data-date="<?php echo $day['date']; ?>">
+                        <div class="rp-day-header">
+                            <span class="rp-day-number"><?php echo $day['day']; ?></span>
+                        </div>
+                        <div class="rp-day-cell <?php echo $cell_class; ?>">
+                            <label class="rp-availability-toggle">
+                                <input type="checkbox" 
+                                       class="rp-avail-check" 
                                        data-date="<?php echo $day['date']; ?>"
-                                       value="<?php echo esc_attr($day['custom_start'] ?? ''); ?>"
-                                       placeholder="Van">
-                                <span>-</span>
-                                <input type="time" 
-                                       class="rp-time-to" 
-                                       data-date="<?php echo $day['date']; ?>"
-                                       value="<?php echo esc_attr($day['custom_end'] ?? ''); ?>"
-                                       placeholder="Tot">
+                                       <?php echo $has_data && $is_available ? 'checked' : ''; ?>
+                                       <?php echo $is_after_deadline ? 'disabled' : ''; ?>>
+                                <span class="rp-toggle-text">
+                                    <?php echo ($has_data && $is_available) ? '✓' : (($has_data && !$is_available) ? '✗' : '?'); ?>
+                                </span>
+                            </label>
+                            
+                            <?php if (!$is_after_deadline): ?>
+                            <select class="rp-shift-pref" data-date="<?php echo $day['date']; ?>">
+                                <option value="">Geen voorkeur</option>
+                                <?php foreach ($shifts as $shift): ?>
+                                <option value="<?php echo $shift->id; ?>" 
+                                        <?php selected($day['shift_preference'], $shift->id); ?>>
+                                    <?php echo esc_html($shift->name); ?> (<?php echo substr($shift->start_time, 0, 5); ?>)
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            
+                            <div class="rp-custom-time">
+                                <label class="rp-time-label">Of eigen tijd:</label>
+                                <div class="rp-time-inputs">
+                                    <input type="time" 
+                                           class="rp-time-from" 
+                                           data-date="<?php echo $day['date']; ?>"
+                                           value="<?php echo esc_attr($day['custom_start'] ?? ''); ?>"
+                                           placeholder="Van">
+                                    <span>-</span>
+                                    <input type="time" 
+                                           class="rp-time-to" 
+                                           data-date="<?php echo $day['date']; ?>"
+                                           value="<?php echo esc_attr($day['custom_end'] ?? ''); ?>"
+                                           placeholder="Tot">
+                                </div>
                             </div>
+                            
+                            <input type="text" 
+                                   class="rp-notes" 
+                                   data-date="<?php echo $day['date']; ?>"
+                                   placeholder="Notities..."
+                                   value="<?php echo esc_attr($day['notes']); ?>"
+                                   maxlength="255">
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        
+        <!-- List View -->
+        <div id="list-view" class="rp-view-container" style="display:none;">
+            <div class="rp-list-wrapper">
+                <?php
+                // Collect all days with data for list view
+                $list_days = [];
+                foreach ($calendar as $day) {
+                    if ($day['type'] !== 'empty') {
+                        $list_days[] = $day;
+                    }
+                }
+                ?>
+                
+                <?php if (empty($list_days)): ?>
+                <div class="rp-empty-list">
+                    <p>Geen dagen beschikbaar voor deze maand.</p>
+                </div>
+                <?php else: ?>
+                <div class="rp-list">
+                    <?php foreach ($list_days as $day): 
+                        $weekend_class = in_array($day['weekday'], [0, 6]) ? 'rp-weekend-item' : '';
+                        $today_class = $day['is_today'] ? 'rp-today-item' : '';
+                        $has_data = $day['availability'] !== null;
+                        $is_available = $day['is_available'];
+                        
+                        if (!$has_data) {
+                            $status_class = 'rp-status-no-data';
+                            $status_text = 'Nog niet ingevuld';
+                            $status_icon = '?';
+                        } elseif ($is_available) {
+                            $status_class = 'rp-status-available';
+                            $status_text = 'Beschikbaar';
+                            $status_icon = '✓';
+                        } else {
+                            $status_class = 'rp-status-unavailable';
+                            $status_text = 'Niet beschikbaar';
+                            $status_icon = '✗';
+                        }
+                        
+                        $weekday_names = ['Zondag', 'Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'];
+                        $weekday_name = $weekday_names[$day['weekday']];
+                    ?>
+                    <div class="rp-list-item <?php echo $weekend_class . ' ' . $today_class; ?>" data-date="<?php echo $day['date']; ?>">
+                        <div class="rp-list-day-header">
+                            <span class="rp-list-weekday"><?php echo $weekday_name; ?></span>
+                            <span class="rp-list-day-number"><?php echo $day['day']; ?></span>
+                            <?php if ($day['is_today']): ?>
+                            <span class="rp-list-today-badge">Vandaag</span>
+                            <?php endif; ?>
                         </div>
                         
-                        <input type="text" 
-                               class="rp-notes" 
-                               data-date="<?php echo $day['date']; ?>"
-                               placeholder="Notities..."
-                               value="<?php echo esc_attr($day['notes']); ?>"
-                               maxlength="255">
-                        <?php endif; ?>
+                        <div class="rp-list-content">
+                            <div class="rp-list-status <?php echo $status_class; ?>">
+                                <span class="rp-status-toggle" onclick="toggleAvailabilityList('<?php echo $day['date']; ?>')" <?php echo $is_after_deadline ? 'style="cursor:not-allowed;"' : ''; ?>>
+                                    <span class="rp-status-icon"><?php echo $status_icon; ?></span>
+                                    <span class="rp-status-text"><?php echo $status_text; ?></span>
+                                </span>
+                                <input type="checkbox" 
+                                       class="rp-avail-check-list" 
+                                       data-date="<?php echo $day['date']; ?>"
+                                       <?php echo $has_data && $is_available ? 'checked' : ''; ?>
+                                       <?php echo $is_after_deadline ? 'disabled' : ''; ?>
+                                       style="display:none;">
+                            </div>
+                            
+                            <?php if (!$is_after_deadline): ?>
+                            <div class="rp-list-fields">
+                                <select class="rp-shift-pref-list" data-date="<?php echo $day['date']; ?>">
+                                    <option value="">Geen voorkeur</option>
+                                    <?php foreach ($shifts as $shift): ?>
+                                    <option value="<?php echo $shift->id; ?>" 
+                                            <?php selected($day['shift_preference'], $shift->id); ?>>
+                                        <?php echo esc_html($shift->name); ?> (<?php echo substr($shift->start_time, 0, 5); ?>)
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                
+                                <div class="rp-custom-time-list">
+                                    <label>Eigen tijd:</label>
+                                    <div class="rp-time-inputs-list">
+                                        <input type="time" 
+                                               class="rp-time-from-list" 
+                                               data-date="<?php echo $day['date']; ?>"
+                                               value="<?php echo esc_attr($day['custom_start'] ?? ''); ?>"
+                                               placeholder="Van">
+                                        <span>-</span>
+                                        <input type="time" 
+                                               class="rp-time-to-list" 
+                                               data-date="<?php echo $day['date']; ?>"
+                                               value="<?php echo esc_attr($day['custom_end'] ?? ''); ?>"
+                                               placeholder="Tot">
+                                    </div>
+                                </div>
+                                
+                                <input type="text" 
+                                       class="rp-notes-list" 
+                                       data-date="<?php echo $day['date']; ?>"
+                                       placeholder="Notities..."
+                                       value="<?php echo esc_attr($day['notes']); ?>"
+                                       maxlength="255">
+                            </div>
+                            <?php endif; ?>
+                        </div>
                     </div>
+                    <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
-                <?php endforeach; ?>
             </div>
         </div>
         
@@ -201,6 +323,41 @@ jQuery('#availability-form').on('submit', function(e) {
         success: function(response) {
             if (response.success) {
                 jQuery('#save-status').html('<span class="rp-saved">✓ Opgeslagen!</span>');
+                
+                // Update all visual states to reflect saved data
+                jQuery('.rp-day[data-date]').each(function() {
+                    const $day = jQuery(this);
+                    const $cell = $day.find('.rp-day-cell');
+                    const $checkbox = $day.find('.rp-avail-check');
+                    const $toggleText = $day.find('.rp-toggle-text');
+                    const isChecked = $checkbox.is(':checked');
+                    
+                    $cell.removeClass('rp-available rp-unavailable rp-no-data');
+                    if ($checkbox.prop('checked')) {
+                        $cell.addClass('rp-available');
+                        $toggleText.text('✓');
+                    } else {
+                        $cell.addClass('rp-unavailable');
+                        $toggleText.text('✗');
+                    }
+                });
+                
+                // Add summary section showing submitted availability
+                const submittedCount = Object.keys(availability).length;
+                const availableCount = Object.values(availability).filter(a => a.available).length;
+                const unavailableCount = submittedCount - availableCount;
+                
+                let summaryHtml = '<div class="rp-submitted-summary" style="margin-top: 15px; padding: 15px; background: #dbeafe; border-radius: 8px; border-left: 4px solid #3b82f6;">';
+                summaryHtml += '<h4 style="margin: 0 0 10px 0;">📊 Je ingediende beschikbaarheid:</h4>';
+                summaryHtml += '<p style="margin: 5px 0;"><strong>' + availableCount + '</strong> dagen beschikbaar</p>';
+                summaryHtml += '<p style="margin: 5px 0;"><strong>' + unavailableCount + '</strong> dagen niet beschikbaar</p>';
+                summaryHtml += '<p style="margin: 5px 0; font-size: 12px; color: #6b7280;">Je kunt je beschikbaarheid nog wijzigen tot de deadline.</p>';
+                summaryHtml += '</div>';
+                
+                // Remove existing summary if any
+                jQuery('.rp-submitted-summary').remove();
+                jQuery('#save-status').after(summaryHtml);
+                
                 setTimeout(function() {
                     jQuery('#save-status').html('');
                 }, 3000);
@@ -216,6 +373,63 @@ jQuery('#availability-form').on('submit', function(e) {
 
 function changeMonth(month) {
     window.location.href = '?month=' + month + '&location=<?php echo $location_id; ?>';
+}
+
+function toggleViewMode(mode) {
+    var calendarView = document.getElementById('calendar-view');
+    var listView = document.getElementById('list-view');
+    var btnCalendar = document.getElementById('btn-calendar-view');
+    var btnList = document.getElementById('btn-list-view');
+    
+    if (mode === 'calendar') {
+        calendarView.style.display = 'block';
+        listView.style.display = 'none';
+        btnCalendar.classList.remove('rp-btn-secondary');
+        btnCalendar.classList.add('rp-btn-primary');
+        btnList.classList.remove('rp-btn-primary');
+        btnList.classList.add('rp-btn-secondary');
+        localStorage.setItem('rp_availability_view', 'calendar');
+    } else {
+        calendarView.style.display = 'none';
+        listView.style.display = 'block';
+        btnCalendar.classList.remove('rp-btn-primary');
+        btnCalendar.classList.add('rp-btn-secondary');
+        btnList.classList.remove('rp-btn-secondary');
+        btnList.classList.add('rp-btn-primary');
+        localStorage.setItem('rp_availability_view', 'list');
+    }
+}
+
+// Restore view preference on page load
+jQuery(document).ready(function() {
+    var savedView = localStorage.getItem('rp_availability_view');
+    if (savedView === 'list') {
+        toggleViewMode('list');
+    }
+});
+
+function toggleAvailabilityList(date) {
+    var checkbox = document.querySelector('.rp-avail-check-list[data-date="' + date + '"]');
+    var listItem = document.querySelector('.rp-list-item[data-date="' + date + '"]');
+    var statusDiv = listItem.querySelector('.rp-list-status');
+    var statusIcon = listItem.querySelector('.rp-status-icon');
+    var statusText = listItem.querySelector('.rp-status-text');
+    
+    if (checkbox.disabled) return;
+    
+    checkbox.checked = !checkbox.checked;
+    
+    statusDiv.classList.remove('rp-status-no-data', 'rp-status-available', 'rp-status-unavailable');
+    
+    if (checkbox.checked) {
+        statusDiv.classList.add('rp-status-available');
+        statusIcon.textContent = '✓';
+        statusText.textContent = 'Beschikbaar';
+    } else {
+        statusDiv.classList.add('rp-status-unavailable');
+        statusIcon.textContent = '✗';
+        statusText.textContent = 'Niet beschikbaar';
+    }
 }
 
 // Toggle visual state
@@ -245,14 +459,14 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-deadline-info.rp-urgent { color: #dc2626; font-weight: 600; }
 .rp-alert-text { animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-.rp-location-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-.rp-tab { padding: 10px 20px; background: #f3f4f6; border-radius: 8px; text-decoration: none; color: #374151; }
+.rp-location-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.rp-tab { padding: 10px 20px; background: #f3f4f6; border-radius: 8px; text-decoration: none; color: #374151; white-space: nowrap; }
 .rp-tab.rp-active { background: #4F46E5; color: #fff; }
-.rp-calendar-wrapper { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
-.rp-calendar-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #f3f4f6; }
+.rp-calendar-wrapper { background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rp-calendar-header { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); background: #f3f4f6; min-width: 840px; }
 .rp-weekday { text-align: center; padding: 12px; font-weight: 600; color: #6b7280; }
-.rp-calendar { display: grid; grid-template-columns: repeat(7, 1fr); min-height: 500px; }
-.rp-day { border: 1px solid #e5e7eb; border-top: none; border-left: none; min-height: 100px; padding: 8px; }
+.rp-calendar { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); min-width: 840px; }
+.rp-day { border: 1px solid #e5e7eb; border-top: none; border-left: none; min-height: 120px; padding: 8px; }
 .rp-empty { background: #f9fafb; }
 .rp-weekend { background: #f3f4f6; }
 .rp-today { background: #dbeafe; }
@@ -274,7 +488,7 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-available { background: #d4edda; }
 .rp-unavailable { background: #f8d7da; }
 .rp-no-data { background: #f9fafb; }
-.rp-form-actions { display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px; }
+.rp-form-actions { display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 20px; background: #f9fafb; border-radius: 8px; flex-wrap: wrap; }
 .rp-save-status { font-weight: 500; }
 .rp-saving { color: #6b7280; }
 .rp-saved { color: #059669; }
@@ -283,10 +497,218 @@ jQuery('.rp-avail-check').on('change', function() {
 .rp-instructions h3 { margin: 0 0 10px; }
 .rp-instructions ul { margin: 0; padding-left: 20px; }
 .rp-instructions li { margin: 5px 0; }
+
+.rp-display-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+/* List View Styles */
+.rp-view-container {
+    width: 100%;
+}
+
+.rp-list-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 20px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.rp-empty-list {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+.rp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rp-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.rp-list-item.rp-weekend-item {
+    background: #f3f4f6;
+}
+
+.rp-list-item.rp-today-item {
+    border-color: #4F46E5;
+    background: #dbeafe;
+}
+
+.rp-list-day-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.rp-list-weekday {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.rp-list-day-number {
+    font-size: 20px;
+    color: #1f2937;
+}
+
+.rp-list-today-badge {
+    background: #4F46E5;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.rp-list-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rp-list-status {
+    display: flex;
+    align-items: center;
+}
+
+.rp-status-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rp-status-no-data .rp-status-toggle {
+    background: #e5e7eb;
+}
+
+.rp-status-available .rp-status-toggle {
+    background: #d4edda;
+}
+
+.rp-status-unavailable .rp-status-toggle {
+    background: #f8d7da;
+}
+
+.rp-status-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.rp-status-no-data .rp-status-icon {
+    background: #9ca3af;
+    color: #fff;
+}
+
+.rp-status-available .rp-status-icon {
+    background: #155724;
+    color: #fff;
+}
+
+.rp-status-unavailable .rp-status-icon {
+    background: #721c24;
+    color: #fff;
+}
+
+.rp-status-text {
+    font-weight: 500;
+}
+
+.rp-list-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rp-shift-pref-list, .rp-notes-list {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.rp-custom-time-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.rp-custom-time-list label {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.rp-time-inputs-list {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rp-time-inputs-list input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
 @media (max-width: 768px) {
-    .rp-calendar { min-height: 300px; }
-    .rp-day { min-height: 80px; padding: 4px; }
+    .rp-display-toggle {
+        width: 100%;
+    }
+    .rp-display-toggle .rp-btn {
+        flex: 1;
+        justify-content: center;
+    }
+    .rp-list-wrapper {
+        padding: 10px;
+    }
+    .rp-list-item {
+        padding: 12px;
+    }
+}
+@media (max-width: 768px) {
+    .rp-container { padding: 10px; max-width: 100%; }
+    .rp-header { flex-direction: column; align-items: flex-start; }
+    .rp-header h1 { font-size: 1.5rem; margin-bottom: 10px; }
+    .rp-info-bar { flex-direction: column; align-items: flex-start; }
+    .rp-calendar-wrapper { border-radius: 8px; }
+    .rp-calendar { min-width: 700px; }
+    .rp-calendar-header { min-width: 700px; }
+    .rp-day { min-height: 100px; padding: 4px; }
     .rp-toggle-text { width: 28px; height: 28px; font-size: 14px; }
     .rp-shift-pref, .rp-notes { font-size: 11px; }
+    .rp-form-actions { flex-direction: column; width: 100%; }
+    .rp-form-actions .rp-btn { width: 100%; justify-content: center; }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+    .rp-day { min-height: 90px; }
+    .rp-shift-pref { font-size: 10px; }
 }
 </style>

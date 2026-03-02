@@ -11,6 +11,7 @@ class Frontend {
         add_shortcode('roosterplanner_ruilenen', [$this, 'render_ruilen']);
         add_shortcode('roosterplanner_chat', [$this, 'render_chat']);
         add_shortcode('roosterplanner_ziekmelden', [$this, 'render_ziekmelden']);
+        add_shortcode('roosterplanner_verlof', [$this, 'render_verlof']);
         add_shortcode('roosterplanner_profielformulier', [$this, 'render_profielformulier']);
         add_shortcode('roosterplanner_berichten', [$this, 'render_berichten']);
         
@@ -34,7 +35,7 @@ class Frontend {
     
     public function render_dashboard($atts) {
         if (!is_user_logged_in()) {
-            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken. <a href="' . wp_login_url() . '">Log in</a></div>';
+            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken. <a href="' . home_url() . '">Log in</a></div>';
         }
         
         $employee = $this->get_current_employee();
@@ -47,16 +48,17 @@ class Frontend {
         // Get theme preference
         $theme_preference = $employee->theme_preference ?: 'light';
         
-        // Get upcoming shifts
+        // Get upcoming shifts (next 7 days only)
+        $today = current_time('Y-m-d');
+        $next_week = date('Y-m-d', strtotime('+7 days'));
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
             FROM {$wpdb->prefix}rp_schedules s
             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
-            WHERE s.employee_id = %d AND s.work_date >= %s AND s.status != 'cancelled'
-            ORDER BY s.work_date ASC
-            LIMIT 10",
-            $employee->id, current_time('Y-m-d')
+            WHERE s.employee_id = %d AND s.work_date >= %s AND s.work_date <= %s AND s.status != 'cancelled'
+            ORDER BY s.work_date ASC",
+            $employee->id, $today, $next_week
         ));
         
         // Get unread notifications count
@@ -136,6 +138,9 @@ class Frontend {
             $schedules = $this->get_personal_schedules($employee->id, $current_month);
         }
         
+        // Check if month is finalized for this location
+        $is_finalized = $this->is_month_finalized($location_id, $current_month);
+        
         // Build calendar data
         $calendar = $this->build_calendar($current_month, $schedules, $view, $location_id);
         
@@ -188,7 +193,14 @@ class Frontend {
             "SELECT * FROM {$wpdb->prefix}rp_availability 
             WHERE employee_id = %d AND location_id = %d AND work_date LIKE %s",
             $employee->id, $location_id, $target_month . '%'
-        ), OBJECT_K);
+        ));
+        
+        // Re-index by date for easier lookup
+        $existing_by_date = [];
+        foreach ($existing_availability as $avail) {
+            $existing_by_date[$avail->work_date] = $avail;
+        }
+        $existing_availability = $existing_by_date;
         
         // Build calendar for month
         $calendar = $this->build_availability_calendar($target_month, $existing_availability, $shifts);
@@ -244,6 +256,7 @@ class Frontend {
                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
                 WHERE s.employee_id != %d AND s.work_date >= %s 
                 AND s.status IN ('scheduled', 'confirmed') AND s.location_id IN ($placeholders)
+                AND s.status != 'swapped'
                 AND s.is_swappable = 1
                 AND s.id NOT IN (SELECT schedule_id FROM {$wpdb->prefix}rp_shift_swaps WHERE status = 'pending')
                 ORDER BY s.work_date ASC
@@ -279,6 +292,35 @@ class Frontend {
             ORDER BY sw.requested_at DESC",
             $employee->id
         ));
+
+        // Collega's op dezelfde locaties voor gerichte ruilaanvraag
+        $employees = [];
+        if (!empty($my_locations)) {
+            $placeholders = implode(',', array_fill(0, count($my_locations), '%d'));
+            $employees = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id, u.display_name, u.user_email
+                 FROM {$wpdb->prefix}rp_employees e
+                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                 LEFT JOIN {$wpdb->prefix}rp_employee_locations el ON el.employee_id = e.id
+                 WHERE e.is_active = 1
+                   AND el.location_id IN ($placeholders)
+                   AND e.id != %d
+                 GROUP BY e.id
+                 ORDER BY u.display_name ASC",
+                array_merge($my_locations, [$employee->id])
+            ));
+        }
+        // fallback: alle actieve collega's als er geen locatie-match is gevonden
+        if (empty($employees)) {
+            $employees = $wpdb->get_results($wpdb->prepare(
+                "SELECT e.id, u.display_name, u.user_email
+                 FROM {$wpdb->prefix}rp_employees e
+                 LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+                 WHERE e.is_active = 1 AND e.id != %d
+                 ORDER BY u.display_name ASC",
+                $employee->id
+            ));
+        }
         
         ob_start();
         echo '<div class="rp-container rp-ruilen' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
@@ -334,6 +376,9 @@ class Frontend {
         // Get theme preference
         $theme_preference = $employee->theme_preference ?: 'light';
         
+        // Check if self sick reporting is enabled
+        $self_sick_enabled = get_option('rooster_planner_enable_self_sick_report', 1);
+        
         // Get upcoming shifts
         $upcoming_shifts = $wpdb->get_results($wpdb->prepare(
             "SELECT s.*, sh.name as shift_name, sh.start_time, sh.end_time, l.name as location_name
@@ -349,6 +394,40 @@ class Frontend {
         ob_start();
         echo '<div class="rp-container rp-ziekmelden' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
         include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/ziekmelden.php';
+        echo '</div>';
+        return ob_get_clean();
+    }
+    
+    public function render_verlof($atts) {
+        if (!is_user_logged_in()) {
+            return '<div class="rp-notice rp-notice-warning">Je moet ingelogd zijn om dit te bekijken.</div>';
+        }
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            return '<div class="rp-notice rp-notice-error">Je hebt geen toegang tot het roostersysteem.</div>';
+        }
+        
+        global $wpdb;
+        
+        // Get theme preference
+        $theme_preference = $employee->theme_preference ?: 'light';
+        
+        // Get employee's timeoff requests
+        $my_timeoff_requests = $wpdb->get_results($wpdb->prepare(
+            "SELECT t.*, 
+                DATEDIFF(t.end_date, t.start_date) + 1 AS days_requested,
+                t.requested_at AS created_at
+             FROM {$wpdb->prefix}rp_timeoff t
+             WHERE t.employee_id = %d 
+             ORDER BY t.requested_at DESC 
+             LIMIT 20",
+            $employee->id
+        ));
+        
+        ob_start();
+        echo '<div class="rp-container rp-verlof' . ($theme_preference === 'dark' ? ' rp-dark-theme' : '') . '">';
+        include ROOSTER_PLANNER_PLUGIN_DIR . 'templates/frontend/verlof.php';
         echo '</div>';
         return ob_get_clean();
     }
@@ -437,6 +516,8 @@ class Frontend {
             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
             WHERE s.employee_id = %d AND s.work_date BETWEEN %s AND %s
+            AND s.status != 'cancelled'
+            GROUP BY s.id
             ORDER BY s.work_date, sh.start_time",
             $employee_id, $start_date, $end_date
         ));
@@ -457,6 +538,8 @@ class Frontend {
             LEFT JOIN {$wpdb->prefix}rp_employees e ON s.employee_id = e.id
             LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
             WHERE s.location_id = %d AND s.work_date BETWEEN %s AND %s
+            AND s.status != 'cancelled'
+            GROUP BY s.id
             ORDER BY s.work_date, sh.start_time",
             $location_id, $start_date, $end_date
         ));
@@ -467,6 +550,19 @@ class Frontend {
         $days_in_month = date('t', $first_day);
         $start_weekday = date('w', $first_day); // 0 = Sunday
         
+        // Deduplicate schedules by ID to avoid double rendering when the same
+        // record is pulled twice via joins or overlapping queries.
+        $unique = [];
+        $deduped = [];
+        foreach ($schedules as $schedule) {
+            if (isset($unique[$schedule->id])) {
+                continue;
+            }
+            $unique[$schedule->id] = true;
+            $deduped[] = $schedule;
+        }
+        $schedules = $deduped;
+
         $calendar = [];
         
         // Empty cells before first day
@@ -546,5 +642,14 @@ class Frontend {
             wp_redirect(home_url('/medewerker-dashboard/'));
             exit;
         }
+    }
+    
+    private function is_month_finalized($location_id, $month) {
+        global $wpdb;
+        
+        return $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_final_schedules WHERE location_id = %d AND month = %s",
+            $location_id, $month
+        )) > 0;
     }
 }

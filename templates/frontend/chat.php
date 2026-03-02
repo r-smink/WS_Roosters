@@ -40,6 +40,8 @@
     </div>
 
 <script>
+// Voorkom dubbele polling vanuit assets/js/frontend.js
+window.rpChatInline = true;
 let lastMessageId = <?php echo !empty($messages) ? end($messages)->id : 0; ?>;
 
 // Auto-scroll to bottom on load

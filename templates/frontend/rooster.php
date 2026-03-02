@@ -28,6 +28,19 @@
             </a>
         </div>
         <?php endif; ?>
+        
+        <div class="rp-display-toggle">
+            <button type="button" class="rp-btn rp-btn-small rp-btn-secondary" onclick="toggleViewMode('calendar')" id="btn-calendar-view">
+                📅 Kalender
+            </button>
+            <button type="button" class="rp-btn rp-btn-small rp-btn-secondary" onclick="toggleViewMode('list')" id="btn-list-view">
+                📋 Lijst
+            </button>
+        </div>
+        
+        <?php if (!$is_finalized && $view !== 'all'): ?>
+        <span class="rp-not-finalized-badge">⏳ Rooster nog niet definitief</span>
+        <?php endif; ?>
     </div>
     
     <?php if ($view === 'all' && $employee->is_admin): ?>
@@ -43,58 +56,150 @@
     </div>
     <?php endif; ?>
     
-    <div class="rp-calendar-wrapper">
-        <div class="rp-calendar-header">
-            <div class="rp-weekday">Zo</div>
-            <div class="rp-weekday">Ma</div>
-            <div class="rp-weekday">Di</div>
-            <div class="rp-weekday">Wo</div>
-            <div class="rp-weekday">Do</div>
-            <div class="rp-weekday">Vr</div>
-            <div class="rp-weekday">Za</div>
-        </div>
-        <div class="rp-calendar">
-            <?php foreach ($calendar as $day): ?>
-            <?php if ($day['type'] === 'empty'): ?>
-            <div class="rp-day rp-empty"></div>
-            <?php else: ?>
-            <div class="rp-day <?php echo $day['is_today'] ? 'rp-today' : ''; ?>">
-                <div class="rp-day-header">
-                    <span class="rp-day-number"><?php echo $day['day']; ?></span>
-                </div>
-                <div class="rp-day-content">
-                    <?php foreach ($day['schedules'] as $schedule): 
-                        $is_past = strtotime($schedule->work_date . ' ' . $schedule->end_time) < current_time('timestamp');
-                        $is_started = strtotime($schedule->work_date . ' ' . $schedule->start_time) < current_time('timestamp');
-                    ?>
-                    <div class="rp-schedule-item <?php echo $is_past ? 'rp-past-shift' : ''; ?>" style="border-left-color: <?php echo $schedule->color; ?>">
-                        <div class="rp-schedule-time"><?php echo substr($schedule->start_time, 0, 5); ?></div>
-                        <div class="rp-schedule-name"><?php echo esc_html($schedule->shift_name); ?></div>
-                        <?php if ($view === 'all' && !empty($schedule->employee_name)): ?>
-                        <div class="rp-schedule-employee"><?php echo esc_html($schedule->employee_name); ?></div>
-                        <?php endif; ?>
-                        <?php if ($view === 'personal'): ?>
-                        <div class="rp-schedule-actions">
-                            <?php if (!$is_started): ?>
-                            <a href="<?php echo home_url('/medewerker-ruilen/?action=swap&schedule=' . $schedule->id); ?>" class="rp-link">
-                                Ruilen
-                            </a>
-                            <?php endif; ?>
-                            <?php if ($is_past && get_option('rooster_planner_enable_worked_hours', 0)): ?>
-                            <button type="button" class="rp-link" onclick="openHoursModal(<?php echo $schedule->id; ?>)">
-                                <?php echo $schedule->actual_start_time ? 'Uren wijzigen' : 'Uren invullen'; ?>
-                            </button>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            <?php endforeach; ?>
+    <?php if (!$is_finalized && $view !== 'all'): ?>
+    <!-- Month not finalized - show message instead of calendar -->
+    <div class="rp-not-finalized-message">
+        <div class="rp-message-content">
+            <h3>⏳ Rooster nog niet definitief</h3>
+            <p>Het rooster voor <?php echo date('F Y', strtotime($current_month . '-01')); ?> is nog niet definitief gemaakt door de planner.</p>
+            <p>Je ontvangt automatisch een notificatie zodra je rooster beschikbaar is.</p>
         </div>
     </div>
+    <?php else: ?>
+    <!-- Show calendar with schedules -->
+    <div id="calendar-view" class="rp-view-container">
+        <div class="rp-calendar-wrapper">
+            <div class="rp-calendar-header">
+                <div class="rp-weekday">Zo</div>
+                <div class="rp-weekday">Ma</div>
+                <div class="rp-weekday">Di</div>
+                <div class="rp-weekday">Wo</div>
+                <div class="rp-weekday">Do</div>
+                <div class="rp-weekday">Vr</div>
+                <div class="rp-weekday">Za</div>
+            </div>
+            <div class="rp-calendar">
+                <?php foreach ($calendar as $day): ?>
+                <?php if ($day['type'] === 'empty'): ?>
+                <div class="rp-day rp-empty"></div>
+                <?php else: ?>
+                <div class="rp-day <?php echo $day['is_today'] ? 'rp-today' : ''; ?>">
+                    <div class="rp-day-header">
+                        <span class="rp-day-number"><?php echo $day['day']; ?></span>
+                    </div>
+                    <div class="rp-day-content">
+                        <?php foreach ($day['schedules'] as $schedule): 
+                            $is_past = strtotime($schedule->work_date . ' ' . $schedule->end_time) < current_time('timestamp');
+                            $is_started = strtotime($schedule->work_date . ' ' . $schedule->start_time) < current_time('timestamp');
+                        ?>
+                        <div class="rp-schedule-item <?php echo $is_past ? 'rp-past-shift' : ''; ?>" style="border-left-color: <?php echo $schedule->color; ?>">
+                            <div class="rp-schedule-time"><?php echo substr($schedule->start_time, 0, 5); ?></div>
+                            <div class="rp-schedule-name"><?php echo esc_html($schedule->shift_name); ?></div>
+                            <?php if ($view === 'all' && !empty($schedule->employee_name)): ?>
+                            <div class="rp-schedule-employee"><?php echo esc_html($schedule->employee_name); ?></div>
+                            <?php endif; ?>
+                            <?php if ($view === 'personal'): ?>
+                            <div class="rp-schedule-actions">
+                                <?php if (!$is_started): ?>
+                                <a href="<?php echo home_url('/medewerker-ruilen/?action=swap&schedule=' . $schedule->id); ?>" class="rp-link">
+                                    Ruilen
+                                </a>
+                                <?php endif; ?>
+                                <?php if ($is_past && get_option('rooster_planner_enable_worked_hours', 0)): ?>
+                                <button type="button" class="rp-link" onclick="openHoursModal(<?php echo $schedule->id; ?>)">
+                                    <?php echo $schedule->actual_start_time ? 'Uren wijzigen' : 'Uren invullen'; ?>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    
+    <!-- List View -->
+    <div id="list-view" class="rp-view-container" style="display:none;">
+        <div class="rp-list-wrapper">
+            <?php
+            // Collect all schedules with dates for list view
+            $list_schedules = [];
+            foreach ($calendar as $day) {
+                if ($day['type'] !== 'empty' && !empty($day['schedules'])) {
+                    foreach ($day['schedules'] as $schedule) {
+                        $list_schedules[] = array_merge((array)$schedule, ['day' => $day['day'], 'is_today' => $day['is_today']]);
+                    }
+                }
+            }
+            // Sort by date then time
+            usort($list_schedules, function($a, $b) {
+                $date_compare = strcmp($a['work_date'], $b['work_date']);
+                if ($date_compare !== 0) return $date_compare;
+                return strcmp($a['start_time'], $b['start_time']);
+            });
+            ?>
+            
+            <?php if (empty($list_schedules)): ?>
+            <div class="rp-empty-list">
+                <p>Geen diensten gepland voor deze maand.</p>
+            </div>
+            <?php else: ?>
+            <div class="rp-list">
+                <?php 
+                $current_date = '';
+                foreach ($list_schedules as $schedule): 
+                    $is_past = strtotime($schedule['work_date'] . ' ' . $schedule['end_time']) < current_time('timestamp');
+                    $is_started = strtotime($schedule['work_date'] . ' ' . $schedule['start_time']) < current_time('timestamp');
+                    
+                    if ($current_date !== $schedule['work_date']) {
+                        $current_date = $schedule['work_date'];
+                        $date_obj = strtotime($schedule['work_date']);
+                        $weekday = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'][date('w', $date_obj)];
+                ?>
+                <div class="rp-list-date-header <?php echo $schedule['is_today'] ? 'rp-today-header' : ''; ?>">
+                    <span class="rp-list-weekday"><?php echo $weekday; ?></span>
+                    <span class="rp-list-date"><?php echo date('d M', $date_obj); ?></span>
+                </div>
+                <?php } ?>
+                
+                <div class="rp-list-item <?php echo $is_past ? 'rp-past-item' : ''; ?>" style="border-left-color: <?php echo $schedule['color']; ?>">
+                    <div class="rp-list-time">
+                        <?php echo substr($schedule['start_time'], 0, 5) . ' - ' . substr($schedule['end_time'], 0, 5); ?>
+                    </div>
+                    <div class="rp-list-details">
+                        <div class="rp-list-name"><?php echo esc_html($schedule['shift_name']); ?></div>
+                        <?php if ($view === 'all' && !empty($schedule['employee_name'])): ?>
+                        <div class="rp-list-employee"><?php echo esc_html($schedule['employee_name']); ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($schedule['location_name'])): ?>
+                        <div class="rp-list-location">📍 <?php echo esc_html($schedule['location_name']); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($view === 'personal'): ?>
+                    <div class="rp-list-actions">
+                        <?php if (!$is_started): ?>
+                        <a href="<?php echo home_url('/medewerker-ruilen/?action=swap&schedule=' . $schedule['id']); ?>" class="rp-btn rp-btn-small rp-btn-secondary">
+                            Ruilen
+                        </a>
+                        <?php endif; ?>
+                        <?php if ($is_past && get_option('rooster_planner_enable_worked_hours', 0)): ?>
+                        <button type="button" class="rp-btn rp-btn-small rp-btn-primary" onclick="openHoursModal(<?php echo $schedule['id']; ?>)">
+                            <?php echo !empty($schedule['actual_start_time']) ? 'Wijzigen' : 'Uren'; ?>
+                        </button>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <?php if ($view === 'personal' && get_option('rooster_planner_enable_worked_hours', 0)): ?>
     <?php 
@@ -249,9 +354,152 @@
     font-size: 18px;
     font-weight: 600;
 }
-.rp-view-toggle {
+.rp-display-toggle {
     display: flex;
     gap: 5px;
+}
+
+/* List View Styles */
+.rp-view-container {
+    width: 100%;
+}
+
+.rp-list-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 20px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.rp-empty-list {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+.rp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rp-list-date-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 15px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+.rp-list-date-header.rp-today-header {
+    background: #dbeafe;
+    color: #4F46E5;
+}
+
+.rp-list-weekday {
+    font-size: 14px;
+    text-transform: uppercase;
+}
+
+.rp-list-date {
+    font-size: 16px;
+}
+
+.rp-list-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.rp-list-item.rp-past-item {
+    opacity: 0.7;
+}
+
+.rp-list-time {
+    font-weight: 600;
+    color: #4F46E5;
+    font-size: 14px;
+    min-width: 100px;
+}
+
+.rp-list-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-list-name {
+    font-weight: 500;
+    color: #1f2937;
+    font-size: 15px;
+}
+
+.rp-list-employee {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.rp-list-location {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.rp-list-actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 768px) {
+    .rp-display-toggle {
+        width: 100%;
+    }
+    .rp-display-toggle .rp-btn {
+        flex: 1;
+    }
+    .rp-list-wrapper {
+        padding: 10px;
+        max-height: 70vh;
+    }
+    .rp-list-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+    }
+    .rp-list-time {
+        min-width: auto;
+    }
+    .rp-list-actions {
+        width: 100%;
+    }
+    .rp-list-actions .rp-btn {
+        flex: 1;
+    }
+}
+
+@media (max-width: 480px) {
+    .rp-list-date-header {
+        padding: 10px 12px;
+    }
+    .rp-list-weekday {
+        font-size: 12px;
+    }
+    .rp-list-date {
+        font-size: 14px;
+    }
+    .rp-list-name {
+        font-size: 14px;
+    }
 }
 .rp-location-filter {
     margin-bottom: 20px;
@@ -512,9 +760,75 @@
 .rp-form-actions .rp-btn {
     flex: 1;
 }
+
+/* Not Finalized Styles */
+.rp-not-finalized-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #fffbeb;
+    color: #d97706;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid #fcd34d;
+}
+.rp-not-finalized-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 40px;
+    text-align: center;
+}
+.rp-message-content h3 {
+    color: #d97706;
+    font-size: 20px;
+    margin: 0 0 15px 0;
+}
+.rp-message-content p {
+    color: #6b7280;
+    margin: 8px 0;
+}
 </style>
 
 <script>
+function toggleViewMode(mode) {
+    var calendarView = document.getElementById('calendar-view');
+    var listView = document.getElementById('list-view');
+    var btnCalendar = document.getElementById('btn-calendar-view');
+    var btnList = document.getElementById('btn-list-view');
+    
+    if (mode === 'calendar') {
+        calendarView.style.display = 'block';
+        listView.style.display = 'none';
+        btnCalendar.classList.remove('rp-btn-secondary');
+        btnCalendar.classList.add('rp-btn-primary');
+        btnList.classList.remove('rp-btn-primary');
+        btnList.classList.add('rp-btn-secondary');
+        localStorage.setItem('rp_schedule_view', 'calendar');
+    } else {
+        calendarView.style.display = 'none';
+        listView.style.display = 'block';
+        btnCalendar.classList.remove('rp-btn-primary');
+        btnCalendar.classList.add('rp-btn-secondary');
+        btnList.classList.remove('rp-btn-secondary');
+        btnList.classList.add('rp-btn-primary');
+        localStorage.setItem('rp_schedule_view', 'list');
+    }
+}
+
+// Restore view preference on page load
+jQuery(document).ready(function() {
+    var savedView = localStorage.getItem('rp_schedule_view');
+    if (savedView === 'list') {
+        toggleViewMode('list');
+    }
+});
+
 function openHoursModal(scheduleId) {
     document.getElementById('hours_schedule_id').value = scheduleId;
     document.getElementById('rp-hours-modal').style.display = 'flex';

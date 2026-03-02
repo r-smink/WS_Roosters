@@ -27,11 +27,13 @@
                         <th class="rp-sticky-col">Medewerker</th>
                         <?php
                         $days_in_month = date('t', strtotime($current_month . '-01'));
+                        $weekdays = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
                         for ($day = 1; $day <= $days_in_month; $day++) {
                             $date = $current_month . '-' . sprintf('%02d', $day);
-                            $weekday = date('D', strtotime($date));
-                            $is_weekend = in_array($weekday, ['Sat', 'Sun']);
-                            echo '<th class="rp-day-col ' . ($is_weekend ? 'rp-weekend' : '') . '">' . $day . '</th>';
+                            $weekday_num = date('w', strtotime($date));
+                            $weekday = $weekdays[$weekday_num];
+                            $is_weekend = in_array($weekday_num, [0, 6]);
+                            echo '<th class="rp-day-col ' . ($is_weekend ? 'rp-weekend' : '') . '" title="' . $weekday . '">' . $day . '<br><small>' . $weekday . '</small></th>';
                         }
                         ?>
                     </tr>
@@ -58,13 +60,16 @@
                             
                             if ($avail) {
                                 $status_class = $avail->is_available ? 'rp-available' : 'rp-unavailable';
-                                $tooltip = $avail->shift_name ?: 'Geen voorkeur';
+                                $tooltip = $avail->shift_name ? 'Voorkeur: ' . $avail->shift_name : 'Geen shift voorkeur';
+                                if ($avail->custom_start && $avail->custom_end) {
+                                    $tooltip .= ' | Tijd: ' . substr($avail->custom_start, 0, 5) . '-' . substr($avail->custom_end, 0, 5);
+                                }
                                 if ($avail->notes) {
-                                    $tooltip .= ' - ' . $avail->notes;
+                                    $tooltip .= ' | Notitie: ' . $avail->notes;
                                 }
                                 echo '<td class="rp-day-col ' . $status_class . '" title="' . esc_attr($tooltip) . '">';
-                                echo $avail->is_available ? '✓' : '✗';
-                                echo '</td>';
+echo $avail->is_available ? '✓' : '✗';
+echo '</td>';
                             } else {
                                 echo '<td class="rp-day-col rp-no-data">-</td>';
                             }
@@ -149,24 +154,34 @@ function changeMonth(month) {
     max-height: 600px;
 }
 .rp-availability-table {
-    min-width: 100%;
+    min-width: max-content;
     border-collapse: separate;
     border-spacing: 1px;
 }
 .rp-availability-table th,
 .rp-availability-table td {
-    padding: 8px 4px;
+    padding: 8px 6px;
     text-align: center;
-    min-width: 35px;
+    min-width: 50px;
 }
 .rp-sticky-col {
-    position: sticky;
-    left: 0;
     background: #fff;
-    z-index: 10;
+    z-index: 100;
     min-width: 150px;
+    width: 150px;
     text-align: left;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    border-right: 1px solid #e5e7eb;
+    padding: 8px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rp-sticky-col::after {
+    content: none;
+}
+.rp-availability-table thead .rp-sticky-col {
+    z-index: 101;
+    background: #f0f0f1;
 }
 .rp-day-col {
     font-size: 12px;

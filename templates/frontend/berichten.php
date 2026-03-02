@@ -4,6 +4,7 @@
         <a href="<?php echo home_url('/medewerker-dashboard/'); ?>" class="rp-btn rp-btn-secondary">
             ← Terug
         </a>
+        <button type="button" class="rp-btn rp-btn-primary" onclick="markAllRead()">Markeer alles als gelezen</button>
     </div>
 </header>
 
@@ -59,6 +60,23 @@ function markAsRead(notificationId, btn) {
                 const item = jQuery(btn).closest('.rp-notification-item');
                 item.removeClass('rp-unread').addClass('rp-read');
                 jQuery(btn).remove();
+            }
+        }
+    });
+}
+
+function markAllRead() {
+    jQuery.ajax({
+        url: rpAjax.ajaxUrl,
+        type: 'POST',
+        data: {
+            action: 'rp_mark_all_notifications_read',
+            nonce: rpAjax.nonce
+        },
+        success: function(response) {
+            if (response.success) {
+                jQuery('.rp-notification-item').removeClass('rp-unread').addClass('rp-read');
+                jQuery('.rp-notification-item .rp-btn-small').remove();
             }
         }
     });

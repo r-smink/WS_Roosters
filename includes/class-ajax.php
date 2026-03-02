@@ -29,6 +29,7 @@ class Ajax {
         add_action('wp_ajax_rp_send_chat_message', [$this, 'send_chat_message']);
         add_action('wp_ajax_rp_get_chat_messages', [$this, 'get_chat_messages']);
         add_action('wp_ajax_rp_mark_notification_read', [$this, 'mark_notification_read']);
+        add_action('wp_ajax_rp_mark_all_notifications_read', [$this, 'mark_all_notifications_read']);
         add_action('wp_ajax_rp_get_notifications', [$this, 'get_notifications']);
         add_action('wp_ajax_rp_report_sick', [$this, 'report_sick']);
         add_action('wp_ajax_rp_save_fixed_schedule', [$this, 'save_fixed_schedule']);
@@ -36,6 +37,15 @@ class Ajax {
         add_action('wp_ajax_rp_save_theme_preference', [$this, 'save_theme_preference']);
         add_action('wp_ajax_rp_save_email_preference', [$this, 'save_email_preference']);
         add_action('wp_ajax_rp_save_push_preference', [$this, 'save_push_preference']);
+        add_action('wp_ajax_rp_save_profile', [$this, 'save_profile']);
+        add_action('wp_ajax_rp_auto_schedule', [$this, 'auto_schedule']);
+        add_action('wp_ajax_rp_resolve_schedule_conflict', [$this, 'resolve_schedule_conflict']);
+        add_action('wp_ajax_rp_auto_schedule_finalize', [$this, 'auto_schedule_finalize']);
+        add_action('wp_ajax_rp_move_schedule', [$this, 'move_schedule']);
+        add_action('wp_ajax_rp_finalize_month', [$this, 'finalize_month']);
+        add_action('wp_ajax_rp_regenerate_ical_token', [$this, 'regenerate_ical_token']);
+        add_action('wp_ajax_rp_clear_calendar', [$this, 'clear_calendar']);
+        add_action('wp_ajax_rp_claim_swappable', [$this, 'claim_swappable']);
     }
     
     public function save_schedule() {
@@ -77,30 +87,43 @@ class Ajax {
         }
         
         $schedule_id = !empty($_POST['schedule_id']) ? intval($_POST['schedule_id']) : 0;
+        $is_edit = $schedule_id > 0;
         
-        if ($schedule_id) {
+        if ($is_edit) {
             $wpdb->update($wpdb->prefix . 'rp_schedules', $data, ['id' => $schedule_id]);
         } else {
             $wpdb->insert($wpdb->prefix . 'rp_schedules', $data);
             $schedule_id = $wpdb->insert_id;
         }
         
-        // Send notification to employee
-        $employee = $wpdb->get_row($wpdb->prepare(
-            "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
-            $data['employee_id']
-        ));
+        // Check if month is finalized - only send notifications if finalized OR if it's an edit
+        $is_month_finalized = $this->is_month_finalized($data['location_id'], date('Y-m', strtotime($data['work_date'])));
         
-        if ($employee) {
-            $shift = $wpdb->get_row($wpdb->prepare(
-                "SELECT name FROM {$wpdb->prefix}rp_shifts WHERE id = %d",
-                $data['shift_id']
+        // Send notification only if month is finalized (for new schedules) OR if editing an existing schedule
+        if ($is_month_finalized || $is_edit) {
+            // Send notification to employee
+            $employee = $wpdb->get_row($wpdb->prepare(
+                "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
+                $data['employee_id']
             ));
             
-            $this->create_notification($employee->user_id, 'schedule_assigned', 
-                'Nieuwe dienst toegekend',
-                'Je bent ingepland voor ' . ($shift ? $shift->name : 'een dienst') . ' op ' . date('d-m-Y', strtotime($data['work_date']))
-            );
+            if ($employee) {
+                $shift = $wpdb->get_row($wpdb->prepare(
+                    "SELECT name FROM {$wpdb->prefix}rp_shifts WHERE id = %d",
+                    $data['shift_id']
+                ));
+                
+                $notification_type = $is_edit ? 'schedule_updated' : 'schedule_assigned';
+                $notification_title = $is_edit ? 'Dienst gewijzigd' : 'Nieuwe dienst toegekend';
+                $notification_message = $is_edit 
+                    ? 'Je dienst is gewijzigd: ' . ($shift ? $shift->name : 'een dienst') . ' op ' . date('d-m-Y', strtotime($data['work_date']))
+                    : 'Je bent ingepland voor ' . ($shift ? $shift->name : 'een dienst') . ' op ' . date('d-m-Y', strtotime($data['work_date']));
+                
+                $this->create_notification($employee->user_id, $notification_type, 
+                    $notification_title,
+                    $notification_message
+                );
+            }
         }
         
         wp_send_json_success(['schedule_id' => $schedule_id]);
@@ -280,22 +303,39 @@ class Ajax {
         
         $swap_id = $wpdb->insert_id;
         
-        // Send notification to requested employee or all admin
+        // Info for notifications
+        $shift = $wpdb->get_row($wpdb->prepare(
+            "SELECT sh.name as shift_name, s.work_date, sh.start_time, sh.end_time
+             FROM {$wpdb->prefix}rp_schedules s
+             LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+             WHERE s.id = %d",
+            $schedule_id
+        ));
+        $requester_user = get_user_by('id', $employee->user_id);
+        $requester_name = $requester_user ? $requester_user->display_name : 'Een collega';
+        $shift_text = $shift ? ($shift->shift_name . ' op ' . date('d-m-Y', strtotime($shift->work_date)) . ' (' . substr($shift->start_time,0,5) . '-' . substr($shift->end_time,0,5) . ')') : 'een dienst';
+
+        // Send notification naar specifieke collega (als gekozen)
         if ($requested_employee_id) {
             $target_employee = $wpdb->get_row($wpdb->prepare(
                 "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
                 $requested_employee_id
             ));
             if ($target_employee) {
-                $this->create_notification($target_employee->user_id, 'swap_request',
-                    'Dienst ruil verzoek',
-                    'Iemand wil een dienst met je ruilen. Bekijk het verzoek in de app.'
+                $this->create_notification(
+                    $target_employee->user_id,
+                    'swap_request',
+                    'Ruilverzoek: ' . $shift_text,
+                    $requester_name . ' vraagt of jij deze dienst wilt overnemen/ruilen. Open de pagina Ruilen om te reageren.'
                 );
             }
         }
         
-        // Notify admins
-        $this->notify_admins('Nieuw ruilverzoek', 'Er is een nieuw dienst ruilverzoek ingediend.');
+        // Notify admins met details (handig in backend)
+        $this->notify_admins(
+            'Nieuw ruilverzoek',
+            $requester_name . ' heeft een ruilverzoek ingediend voor ' . $shift_text . '.'
+        );
         
         wp_send_json_success(['swap_id' => $swap_id]);
     }
@@ -512,6 +552,24 @@ class Ajax {
         
         wp_send_json_success();
     }
+
+    public function mark_all_notifications_read() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        if (!is_user_logged_in()) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $wpdb->update($wpdb->prefix . 'rp_notifications', [
+            'is_read' => 1
+        ], [
+            'user_id' => get_current_user_id()
+        ]);
+        
+        wp_send_json_success();
+    }
     
     public function get_notifications() {
         check_ajax_referer('rp_nonce', 'nonce');
@@ -652,14 +710,15 @@ class Ajax {
         return $emp && $emp->is_admin;
     }
     
-    private function create_notification($user_id, $type, $title, $message) {
+    private function create_notification($user_id, $type, $title, $message, $related_id = null) {
         global $wpdb;
         
         $wpdb->insert($wpdb->prefix . 'rp_notifications', [
             'user_id' => $user_id,
             'type' => $type,
             'title' => $title,
-            'message' => $message
+            'message' => $message,
+            'related_id' => $related_id
         ]);
     }
     
@@ -872,6 +931,88 @@ class Ajax {
             'message' => $new_status ? 'Dienst is nu gemarkeerd als ruilbaar' : 'Dienst is niet meer ruilbaar'
         ]);
     }
+
+    /**
+     * Claim (overnemen) een dienst die als ruilbaar staat
+     */
+    public function claim_swappable() {
+        check_ajax_referer('rp_nonce', 'nonce');
+
+        global $wpdb;
+
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+
+        $schedule_id = intval($_POST['schedule_id']);
+
+        // Haal dienst op en valideer
+        $schedule = $wpdb->get_row($wpdb->prepare(
+            "SELECT s.*, l.id as location_id
+             FROM {$wpdb->prefix}rp_schedules s
+             LEFT JOIN {$wpdb->prefix}rp_locations l ON s.location_id = l.id
+             WHERE s.id = %d",
+            $schedule_id
+        ));
+
+        if (!$schedule) {
+            wp_send_json_error('Dienst niet gevonden');
+        }
+
+        if ($schedule->employee_id == $employee->id) {
+            wp_send_json_error('Je kunt je eigen dienst niet overnemen.');
+        }
+
+        if (!$schedule->is_swappable) {
+            wp_send_json_error('Deze dienst is niet als ruilbaar gemarkeerd.');
+        }
+
+        // Controleer of medewerker toegang heeft tot locatie
+        $allowed_locations = $wpdb->get_col($wpdb->prepare(
+            "SELECT location_id FROM {$wpdb->prefix}rp_employee_locations WHERE employee_id = %d",
+            $employee->id
+        ));
+        if (!in_array(intval($schedule->location_id), array_map('intval', $allowed_locations))) {
+            wp_send_json_error('Je hebt geen toegang tot deze locatie.');
+        }
+
+        // Wissel dienst toe naar nieuwe medewerker
+        $wpdb->update($wpdb->prefix . 'rp_schedules', [
+            'employee_id'   => $employee->id,
+            'status'        => 'swapped',
+            'is_swappable'  => 0,
+            'updated_at'    => current_time('mysql')
+        ], ['id' => $schedule_id]);
+
+        // Log in swaps tabel (completed)
+        $wpdb->insert($wpdb->prefix . 'rp_shift_swaps', [
+            'schedule_id'           => $schedule_id,
+            'requester_id'          => $schedule->employee_id, // oorspronkelijke eigenaar
+            'requested_employee_id' => $employee->id,
+            'status'                => 'completed',
+            'reason'                => 'Dienst overgenomen via ruilbaar aanbod',
+            'requested_at'          => current_time('mysql'),
+            'responded_at'          => current_time('mysql')
+        ]);
+
+        // Notificaties
+        $this->create_notification($employee->user_id, 'swap_claimed_self',
+            'Dienst overgenomen',
+            'Je hebt de dienst op ' . date('d-m-Y', strtotime($schedule->work_date)) . ' overgenomen.');
+
+        $orig_user = $wpdb->get_var($wpdb->prepare(
+            "SELECT user_id FROM {$wpdb->prefix}rp_employees WHERE id = %d",
+            $schedule->employee_id
+        ));
+        if ($orig_user) {
+            $this->create_notification($orig_user, 'swap_claimed_other',
+                'Dienst is overgenomen',
+                'Je dienst op ' . date('d-m-Y', strtotime($schedule->work_date)) . ' is overgenomen.');
+        }
+
+        wp_send_json_success(['message' => 'Dienst succesvol overgenomen']);
+    }
     
     /**
      * Save theme preference for employee
@@ -941,5 +1082,885 @@ class Ajax {
         ], ['id' => $employee->id]);
         
         wp_send_json_success(['enabled' => $enabled]);
+    }
+    
+    /**
+     * Save profile info (phone/email) for the current employee
+     */
+    public function save_profile() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        $phone = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : null;
+        $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : null;
+        
+        // Update phone in employees table
+        if ($phone !== null) {
+            $wpdb->update($wpdb->prefix . 'rp_employees', [
+                'phone' => $phone
+            ], ['id' => $employee->id]);
+        }
+        
+        // Update email in WordPress users table
+        if ($email !== null && is_email($email)) {
+            // Check if email is already in use by another user
+            $existing_user = get_user_by('email', $email);
+            if ($existing_user && $existing_user->ID !== get_current_user_id()) {
+                wp_send_json_error('Dit e-mailadres is al in gebruik door een andere gebruiker.');
+                return;
+            }
+            wp_update_user([
+                'ID' => get_current_user_id(),
+                'user_email' => $email
+            ]);
+        } elseif ($email !== null && !is_email($email)) {
+            wp_send_json_error('Ongeldig e-mailadres.');
+            return;
+        }
+        
+        wp_send_json_success(['message' => 'Profiel bijgewerkt']);
+    }
+    
+    /**
+     * Auto-schedule shifts for a month based on availability and contract hours
+     * Modified to detect conflicts and respect custom times
+     */
+    public function auto_schedule() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        // Parse form data
+        parse_str($_POST['data'], $form_data);
+        
+        $location_id = intval($form_data['location_id']);
+        $month = sanitize_text_field($form_data['month']);
+        $respect_contract_hours = !empty($form_data['respect_contract_hours']);
+        $respect_availability = !empty($form_data['respect_availability']);
+        $balance_shifts = !empty($form_data['balance_shifts']);
+        $overwrite_existing = !empty($form_data['overwrite_existing']);
+        $resolve_conflicts = !empty($_POST['resolve_conflicts']);
+        
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        // Get all shifts for this location
+        $shifts = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_shifts WHERE location_id = %d AND is_active = 1 ORDER BY start_time",
+            $location_id
+        ));
+        
+        // Get employees with their availability for this location
+        $employees = $wpdb->get_results($wpdb->prepare(
+            "SELECT e.*, u.display_name, GROUP_CONCAT(el.location_id) as assigned_locations
+            FROM {$wpdb->prefix}rp_employees e
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            LEFT JOIN {$wpdb->prefix}rp_employee_locations el ON e.id = el.employee_id
+            WHERE e.is_active = 1
+            GROUP BY e.id
+            HAVING FIND_IN_SET(%d, assigned_locations)
+            ORDER BY u.display_name",
+            $location_id
+        ));
+        
+        // Index employees by ID for quick lookup
+        $employees_by_id = [];
+        foreach ($employees as $emp) {
+            $employees_by_id[$emp->id] = $emp;
+        }
+        
+        // Get all availability for this month and location
+        $availability_data = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_availability 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s AND is_available = 1",
+            $location_id, $start_date, $end_date
+        ));
+        
+        // Index availability by employee_id and date
+        $availability_by_employee = [];
+        foreach ($availability_data as $a) {
+            $availability_by_employee[$a->employee_id][$a->work_date] = $a;
+        }
+        
+        // Get existing schedules for this month
+        $existing_schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_schedules 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s AND status != 'cancelled'",
+            $location_id, $start_date, $end_date
+        ));
+        
+        // Index existing schedules by date and shift
+        $existing_by_date_shift = [];
+        foreach ($existing_schedules as $s) {
+            $existing_by_date_shift[$s->work_date][$s->shift_id] = $s;
+        }
+        
+        $conflicts = [];
+        $open_shifts = [];
+        $scheduled_count = 0;
+        
+        // Loop through each day of the month
+        $days_in_month = date('t', strtotime($start_date));
+        for ($day = 1; $day <= $days_in_month; $day++) {
+            $date = $month . '-' . sprintf('%02d', $day);
+            
+            // Check if date is in the past (skip past dates)
+            if ($date < current_time('Y-m-d')) {
+                continue;
+            }
+            
+            // For each shift on this date, find employees with preference
+            foreach ($shifts as $shift) {
+                // Check if shift is already scheduled for this date
+                if (!$overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    continue;
+                }
+                
+                // Find all employees who prefer this shift on this date
+                $preferred_employees = [];
+                
+                foreach ($employees as $emp) {
+                    // Check if employee has availability for this date
+                    if (!isset($availability_by_employee[$emp->id][$date])) {
+                        continue;
+                    }
+                    
+                    $avail = $availability_by_employee[$emp->id][$date];
+                    
+                    // Check if employee prefers this specific shift
+                    if (empty($avail->shift_preference) || $avail->shift_preference != $shift->id) {
+                        continue;
+                    }
+                    
+                    // Check if employee is already scheduled for this date
+                    $already_scheduled = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                        WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
+                        $emp->id, $date
+                    ));
+                    
+                    if ($already_scheduled > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    // Calculate shift hours using custom times if provided
+                    $shift_hours = 0;
+                    if (!empty($avail->custom_start) && !empty($avail->custom_end)) {
+                        $shift_hours = $this->calculate_shift_hours($avail->custom_start, $avail->custom_end);
+                    } else {
+                        $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                    }
+                    
+                    // Get weekly hours for contract checking
+                    $weekly_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
+                    
+                    // Check contract hours
+                    $contract_hours_ok = true;
+                    if ($respect_contract_hours && $emp->contract_hours > 0) {
+                        if (($weekly_hours + $shift_hours) > $emp->contract_hours) {
+                            $contract_hours_ok = false;
+                        }
+                    }
+                    
+                    // Check for time conflicts
+                    $time_conflict = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules s
+                        LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                        WHERE s.employee_id = %d AND s.work_date = %s AND s.status != 'cancelled'
+                        AND ((sh.start_time < %s AND sh.end_time > %s) OR (sh.start_time < %s AND sh.end_time > %s)
+                        OR (sh.start_time >= %s AND sh.end_time <= %s))",
+                        $emp->id, $date, $shift->end_time, $shift->start_time, 
+                        $shift->end_time, $shift->start_time, $shift->start_time, $shift->end_time
+                    ));
+                    
+                    if ($time_conflict > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    $preferred_employees[] = [
+                        'employee_id' => $emp->id,
+                        'employee_name' => $emp->display_name,
+                        'contract_hours' => $emp->contract_hours,
+                        'weekly_hours' => $weekly_hours,
+                        'shift_hours' => $shift_hours,
+                        'custom_start' => $avail->custom_start,
+                        'custom_end' => $avail->custom_end,
+                        'contract_hours_ok' => $contract_hours_ok
+                    ];
+                }
+                
+                // If multiple employees prefer this shift, it's a conflict
+                if (count($preferred_employees) > 1) {
+                    $conflicts[] = [
+                        'date' => $date,
+                        'shift_id' => $shift->id,
+                        'shift_name' => $shift->name,
+                        'shift_time' => substr($shift->start_time, 0, 5) . ' - ' . substr($shift->end_time, 0, 5),
+                        'employees' => $preferred_employees
+                    ];
+                } elseif (count($preferred_employees) === 1) {
+                    // Only one employee prefers this shift - assign directly
+                    $emp = $preferred_employees[0];
+                    
+                    // If overwriting, delete existing schedule first
+                    if ($overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                        $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing_by_date_shift[$date][$shift->id]->id]);
+                    }
+                    
+                    // Determine start and end times - use custom times from availability if provided
+                    $start_time = $emp['custom_start'] ?: $shift->start_time;
+                    $end_time = $emp['custom_end'] ?: $shift->end_time;
+                    
+                    // Schedule the shift
+                    $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+                        'employee_id' => $emp['employee_id'],
+                        'location_id' => $location_id,
+                        'shift_id' => $shift->id,
+                        'work_date' => $date,
+                        'start_time' => $start_time,
+                        'end_time' => $end_time,
+                        'status' => 'scheduled',
+                        'created_by' => get_current_user_id()
+                    ]);
+                    
+                    // Mark this shift as filled
+                    $existing_by_date_shift[$date][$shift->id] = (object)['id' => $wpdb->insert_id];
+                    $scheduled_count++;
+                } else {
+                    // No employees prefer this shift - will be filled in second pass or marked as open
+                    // For now, just track it
+                }
+            }
+        }
+        
+        // If we're in conflict resolution mode and there are conflicts, return them
+        if ($resolve_conflicts && !empty($conflicts)) {
+            wp_send_json_success([
+                'conflicts' => $conflicts,
+                'scheduled' => $scheduled_count,
+                'respected_contract_hours' => $respect_contract_hours,
+                'respected_availability' => $respect_availability
+            ]);
+        }
+        
+        // Second pass: fill remaining shifts with employees who have availability but no specific preference
+        // This handles employees who are available with custom times but no shift_preference set
+        for ($day = 1; $day <= $days_in_month; $day++) {
+            $date = $month . '-' . sprintf('%02d', $day);
+            
+            // Skip past dates
+            if ($date < current_time('Y-m-d')) {
+                continue;
+            }
+            
+            foreach ($shifts as $shift) {
+                // Check if shift is already scheduled for this date
+                if (!$overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    continue;
+                }
+                
+                // Find available employees for this shift
+                // Include employees who:
+                // 1. Have availability for this date (is_available = 1)
+                // 2. Don't have a conflicting shift_preference for a DIFFERENT shift
+                // 3. Have custom_start/custom_end set OR not
+                $available_employees = [];
+                
+                foreach ($employees as $emp) {
+                    // Check if employee is already scheduled for this date - SKIP if yes
+                    $already_scheduled = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                        WHERE employee_id = %d AND work_date = %s AND status != 'cancelled'",
+                        $emp->id, $date
+                    ));
+                    
+                    if ($already_scheduled > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    // Check if employee has availability for this date
+                    if (!isset($availability_by_employee[$emp->id][$date])) {
+                        // If respecting availability is required, skip employees without availability
+                        if ($respect_availability) {
+                            continue;
+                        }
+                    }
+                    
+                    $avail = $availability_by_employee[$emp->id][$date] ?? null;
+                    
+                    // If employee has availability with a shift_preference for a DIFFERENT shift, skip them
+                    // (they already had their chance in the first pass and weren't selected)
+                    if ($avail && !empty($avail->shift_preference) && $avail->shift_preference != $shift->id) {
+                        continue;
+                    }
+                    
+                    // ALSO skip employees who have a shift_preference for THIS shift 
+                    // and were already processed in the first pass
+                    if ($avail && !empty($avail->shift_preference) && $avail->shift_preference == $shift->id) {
+                        // They were either scheduled or added to conflicts in first pass
+                        // Either way, don't schedule them again in second pass
+                        continue;
+                    }
+                    
+                    // Calculate shift hours - USE CUSTOM TIMES if employee has them in availability
+                    if ($avail && !empty($avail->custom_start) && !empty($avail->custom_end)) {
+                        $shift_hours = $this->calculate_shift_hours($avail->custom_start, $avail->custom_end);
+                        $start_time = $avail->custom_start;
+                        $end_time = $avail->custom_end;
+                    } else {
+                        $shift_hours = $this->calculate_shift_hours($shift->start_time, $shift->end_time);
+                        $start_time = $shift->start_time;
+                        $end_time = $shift->end_time;
+                    }
+                    
+                    // Check contract hours per week
+                    if ($respect_contract_hours && $emp->contract_hours > 0) {
+                        $current_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
+                        if (($current_hours + $shift_hours) > $emp->contract_hours) {
+                            continue;
+                        }
+                    }
+                    
+                    // Check for time conflicts with existing schedules
+                    $time_conflict = $wpdb->get_var($wpdb->prepare(
+                        "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules s
+                        LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                        WHERE s.employee_id = %d AND s.work_date = %s AND s.status != 'cancelled'
+                        AND ((sh.start_time < %s AND sh.end_time > %s) OR (sh.start_time < %s AND sh.end_time > %s)
+                        OR (sh.start_time >= %s AND sh.end_time <= %s))",
+                        $emp->id, $date, $end_time, $start_time, 
+                        $end_time, $start_time, $start_time, $end_time
+                    ));
+                    
+                    if ($time_conflict > 0 && !$overwrite_existing) {
+                        continue;
+                    }
+                    
+                    // Employee is available - add to list with priority based on hours worked
+                    $weekly_hours = $this->get_scheduled_hours_for_week($emp->id, $date);
+                    $available_employees[] = [
+                        'employee' => $emp,
+                        'start_time' => $start_time,
+                        'end_time' => $end_time,
+                        'shift_hours' => $shift_hours,
+                        'weekly_hours' => $weekly_hours,
+                        'has_custom_time' => ($avail && !empty($avail->custom_start) && !empty($avail->custom_end))
+                    ];
+                }
+                
+                if (empty($available_employees)) {
+                    // No available employee - mark as open shift
+                    $open_shifts[] = [
+                        'date' => date('d-m-Y', strtotime($date)),
+                        'date_raw' => $date,
+                        'shift_name' => $shift->name,
+                        'time' => substr($shift->start_time, 0, 5) . ' - ' . substr($shift->end_time, 0, 5),
+                        'color' => $shift->color
+                    ];
+                    continue;
+                }
+                
+                // Sort by weekly hours (fewest hours first to balance workload)
+                usort($available_employees, function($a, $b) {
+                    return $a['weekly_hours'] - $b['weekly_hours'];
+                });
+                
+                // Select the employee with fewest hours
+                $selected = $available_employees[0];
+                $selected_employee = $selected['employee'];
+                
+                // If overwriting, delete existing schedule first
+                if ($overwrite_existing && isset($existing_by_date_shift[$date][$shift->id])) {
+                    $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing_by_date_shift[$date][$shift->id]->id]);
+                }
+                
+                // Schedule the shift with custom times if available
+                $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+                    'employee_id' => $selected_employee->id,
+                    'location_id' => $location_id,
+                    'shift_id' => $shift->id,
+                    'work_date' => $date,
+                    'start_time' => $selected['start_time'],
+                    'end_time' => $selected['end_time'],
+                    'status' => 'scheduled',
+                    'created_by' => get_current_user_id()
+                ]);
+                
+                // Mark this shift as filled
+                $existing_by_date_shift[$date][$shift->id] = (object)['id' => $wpdb->insert_id];
+                $scheduled_count++;
+            }
+        }
+        
+        wp_send_json_success([
+            'scheduled' => $scheduled_count,
+            'conflicts' => $conflicts,
+            'open_shifts' => $open_shifts,
+            'respected_contract_hours' => $respect_contract_hours,
+            'respected_availability' => $respect_availability
+        ]);
+    }
+    
+    /**
+     * Get total scheduled hours for an employee in a specific week
+     */
+    private function get_scheduled_hours_for_week($employee_id, $date) {
+        global $wpdb;
+        
+        // Get the week containing this date (Monday to Sunday)
+        $timestamp = strtotime($date);
+        $day_of_week = date('N', $timestamp); // 1 = Monday, 7 = Sunday
+        
+        $week_start = date('Y-m-d', strtotime('-' . ($day_of_week - 1) . ' days', $timestamp));
+        $week_end = date('Y-m-d', strtotime('+' . (7 - $day_of_week) . ' days', $timestamp));
+        
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*, sh.start_time, sh.end_time FROM {$wpdb->prefix}rp_schedules s
+            LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+            WHERE s.employee_id = %d AND s.work_date BETWEEN %s AND %s AND s.status != 'cancelled'",
+            $employee_id, $week_start, $week_end
+        ));
+        
+        $total_hours = 0;
+        foreach ($schedules as $schedule) {
+            $total_hours += $this->calculate_shift_hours($schedule->start_time, $schedule->end_time);
+        }
+        
+        return $total_hours;
+    }
+    
+    /**
+     * Get total scheduled hours for an employee in a month
+     */
+    private function get_scheduled_hours_for_month($employee_id, $month) {
+        global $wpdb;
+        
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*, sh.start_time, sh.end_time FROM {$wpdb->prefix}rp_schedules s
+            LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+            WHERE s.employee_id = %d AND s.work_date BETWEEN %s AND %s AND s.status != 'cancelled'",
+            $employee_id, $start_date, $end_date
+        ));
+        
+        $total_hours = 0;
+        foreach ($schedules as $schedule) {
+            $total_hours += $this->calculate_shift_hours($schedule->start_time, $schedule->end_time);
+        }
+        
+        return $total_hours;
+    }
+    
+    /**
+     * Calculate shift hours between start and end time
+     */
+    private function calculate_shift_hours($start_time, $end_time) {
+        $start = strtotime($start_time);
+        $end = strtotime($end_time);
+        
+        // Handle overnight shifts
+        if ($end < $start) {
+            $end = strtotime('+1 day', $end);
+        }
+        
+        $diff_hours = ($end - $start) / 3600;
+        return round($diff_hours, 2);
+    }
+    
+    /**
+     * Move a schedule to a new date or shift (drag and drop)
+     */
+    public function move_schedule() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        $schedule_id = intval($_POST['schedule_id']);
+        $new_date = sanitize_text_field($_POST['new_date']);
+        $new_shift_id = !empty($_POST['new_shift_id']) ? intval($_POST['new_shift_id']) : null;
+        
+        // Get the current schedule
+        $schedule = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_schedules WHERE id = %d",
+            $schedule_id
+        ));
+        
+        if (!$schedule) {
+            wp_send_json_error('Dienst niet gevonden');
+        }
+        
+        // If new shift is provided, update it; otherwise keep the existing shift
+        if ($new_shift_id) {
+            // Verify the new shift exists and get its times
+            $shift = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}rp_shifts WHERE id = %d",
+                $new_shift_id
+            ));
+            
+            if (!$shift) {
+                wp_send_json_error('Shift niet gevonden');
+            }
+            
+            // Check for conflicts at the new date and shift
+            $conflict = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+                WHERE work_date = %s AND shift_id = %d AND id != %d AND status != 'cancelled'",
+                $new_date, $new_shift_id, $schedule_id
+            ));
+            
+            if ($conflict > 0) {
+                wp_send_json_error('Er is al een dienst gepland op dit tijdstip');
+            }
+            
+            // Update the schedule with new date and shift
+            $wpdb->update($wpdb->prefix . 'rp_schedules', [
+                'work_date' => $new_date,
+                'shift_id' => $new_shift_id,
+                'start_time' => $shift->start_time,
+                'end_time' => $shift->end_time
+            ], ['id' => $schedule_id]);
+        } else {
+            // Just update the date, keep the same shift
+            // Check for conflicts on the new date with the same employee
+            $conflict = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules s
+                LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+                WHERE s.work_date = %s AND s.employee_id = %d AND s.id != %d AND s.status != 'cancelled'
+                AND ((sh.start_time < %s AND sh.end_time > %s) OR (sh.start_time >= %s AND sh.end_time <= %s))",
+                $new_date, $schedule->employee_id, $schedule_id,
+                $schedule->end_time, $schedule->start_time, $schedule->start_time, $schedule->end_time
+            ));
+            
+            if ($conflict > 0) {
+                wp_send_json_error('Er is een tijdsconflict op de nieuwe datum');
+            }
+            
+            $wpdb->update($wpdb->prefix . 'rp_schedules', [
+                'work_date' => $new_date
+            ], ['id' => $schedule_id]);
+        }
+        
+        wp_send_json_success(['message' => 'Dienst verplaatst']);
+    }
+    
+    /**
+     * Check if a month is finalized for a location
+     */
+    private function is_month_finalized($location_id, $month) {
+        global $wpdb;
+        
+        return $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_final_schedules WHERE location_id = %d AND month = %s",
+            $location_id, $month
+        )) > 0;
+    }
+    
+    /**
+     * Finalize a month and send bulk notifications to employees
+     */
+    public function finalize_month() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        $location_id = intval($_POST['location_id']);
+        $month = sanitize_text_field($_POST['month']);
+        
+        // Check if already finalized
+        if ($this->is_month_finalized($location_id, $month)) {
+            wp_send_json_error('Deze maand is al definitief gemaakt');
+        }
+        
+        // Get all schedules for this month and location
+        $schedules = $wpdb->get_results($wpdb->prepare(
+            "SELECT s.*, sh.name as shift_name, u.display_name as employee_name, e.user_id
+            FROM {$wpdb->prefix}rp_schedules s
+            LEFT JOIN {$wpdb->prefix}rp_shifts sh ON s.shift_id = sh.id
+            LEFT JOIN {$wpdb->prefix}rp_employees e ON s.employee_id = e.id
+            LEFT JOIN {$wpdb->users} u ON e.user_id = u.ID
+            WHERE s.location_id = %d AND s.work_date LIKE %s AND s.status != 'cancelled'
+            ORDER BY e.id, s.work_date",
+            $location_id, $month . '%'
+        ));
+        
+        if (empty($schedules)) {
+            wp_send_json_error('Er zijn geen diensten om definitief te maken');
+        }
+        
+        // Group schedules by employee
+        $employee_schedules = [];
+        foreach ($schedules as $schedule) {
+            $employee_schedules[$schedule->user_id][] = $schedule;
+        }
+        
+        // Send one bulk notification per employee
+        $notification_count = 0;
+        foreach ($employee_schedules as $user_id => $emp_schedules) {
+            $shift_count = count($emp_schedules);
+            $first_date = date('d-m-Y', strtotime($emp_schedules[0]->work_date));
+            $last_date = date('d-m-Y', strtotime($emp_schedules[$shift_count - 1]->work_date));
+            
+            // Build summary of shifts
+            $shift_summary = [];
+            foreach ($emp_schedules as $s) {
+                $shift_summary[] = date('d-m', strtotime($s->work_date)) . ': ' . $s->shift_name;
+            }
+            
+            $message = "Je rooster voor " . date('F Y', strtotime($month . '-01')) . " is definitief.\n\n";
+            $message .= "Je hebt " . $shift_count . " dienst(en) gepland:\n";
+            $message .= implode("\n", array_slice($shift_summary, 0, 10));
+            if (count($shift_summary) > 10) {
+                $message .= "\n... en " . (count($shift_summary) - 10) . " meer";
+            }
+            
+            $this->create_notification($user_id, 'schedule_finalized', 
+                'Rooster definitief - ' . date('F Y', strtotime($month . '-01')),
+                $message
+            );
+            
+            $notification_count++;
+        }
+        
+        // Mark month as finalized
+        $wpdb->insert($wpdb->prefix . 'rp_final_schedules', [
+            'location_id' => $location_id,
+            'month' => $month,
+            'finalized_at' => current_time('mysql'),
+            'finalized_by' => get_current_user_id()
+        ]);
+        
+        wp_send_json_success([
+            'message' => sprintf(
+                '%d medewerkers hebben een notificatie ontvangen met hun roosteroverzicht.',
+                $notification_count
+            )
+        ]);
+    }
+    
+    /**
+     * Regenerate iCal token for current employee
+     */
+    public function regenerate_ical_token() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        global $wpdb;
+        
+        $employee = $this->get_current_employee();
+        if (!$employee) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        // Generate new token
+        $new_token = ICalExport::generate_token($employee->id);
+        $new_url = ICalExport::get_ical_url($employee->id);
+        
+        wp_send_json_success([
+            'url' => $new_url,
+            'message' => 'Nieuwe iCal link gegenereerd'
+        ]);
+    }
+    
+    /**
+     * Clear all schedules for a month and location
+     */
+    public function clear_calendar() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        $location_id = intval($_POST['location_id']);
+        $month = sanitize_text_field($_POST['month']);
+        
+        // Validate month format
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            wp_send_json_error('Ongeldig maandformaat');
+        }
+        
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        // Check if month is finalized
+        $is_finalized = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_final_schedules WHERE location_id = %d AND month = %s",
+            $location_id, $month
+        ));
+        
+        if ($is_finalized) {
+            wp_send_json_error('Deze maand is definitief gemaakt en kan niet worden gewijzigd');
+        }
+        
+        // Mark all schedules as cancelled for this month and location
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->prefix}rp_schedules 
+            SET status = 'cancelled' 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s",
+            $location_id, $start_date, $end_date
+        ));
+        
+        wp_send_json_success([
+            'deleted' => $result,
+            'message' => $result . ' diensten verwijderd'
+        ]);
+    }
+    
+    /**
+     * Resolve a schedule conflict by assigning an employee to a shift
+     */
+    public function resolve_schedule_conflict() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        $date = sanitize_text_field($_POST['date']);
+        $shift_id = intval($_POST['shift_id']);
+        $employee_id = intval($_POST['employee_id']);
+        $custom_start = !empty($_POST['custom_start']) ? sanitize_text_field($_POST['custom_start']) : null;
+        $custom_end = !empty($_POST['custom_end']) ? sanitize_text_field($_POST['custom_end']) : null;
+        
+        // Get shift and location info
+        $shift = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_shifts WHERE id = %d",
+            $shift_id
+        ));
+        
+        if (!$shift) {
+            wp_send_json_error('Shift niet gevonden');
+        }
+        
+        // Determine start and end times
+        $start_time = $custom_start ?: $shift->start_time;
+        $end_time = $custom_end ?: $shift->end_time;
+        
+        // Check if a schedule already exists for this date/shift
+        $existing = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}rp_schedules 
+            WHERE work_date = %s AND shift_id = %d AND status != 'cancelled'",
+            $date, $shift_id
+        ));
+        
+        // Delete existing schedule to prevent duplicates
+        if ($existing) {
+            $wpdb->delete($wpdb->prefix . 'rp_schedules', ['id' => $existing->id]);
+        }
+        
+        // Store the resolved conflict in a temporary table or session
+        // For now, we'll create the schedule directly
+        $wpdb->insert($wpdb->prefix . 'rp_schedules', [
+            'employee_id' => $employee_id,
+            'location_id' => $shift->location_id,
+            'shift_id' => $shift_id,
+            'work_date' => $date,
+            'start_time' => $start_time,
+            'end_time' => $end_time,
+            'status' => 'scheduled',
+            'created_by' => get_current_user_id()
+        ]);
+        
+        wp_send_json_success([
+            'schedule_id' => $wpdb->insert_id,
+            'message' => 'Dienst toegewezen'
+        ]);
+    }
+    
+    /**
+     * Finalize auto-schedule after all conflicts are resolved
+     */
+    public function auto_schedule_finalize() {
+        check_ajax_referer('rp_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Geen toegang');
+        }
+        
+        global $wpdb;
+        
+        // Parse form data
+        parse_str($_POST['data'], $form_data);
+        
+        $location_id = intval($form_data['location_id']);
+        $month = sanitize_text_field($form_data['month']);
+        $respect_contract_hours = !empty($form_data['respect_contract_hours']);
+        $respect_availability = !empty($form_data['respect_availability']);
+        
+        $start_date = $month . '-01';
+        $end_date = date('Y-m-t', strtotime($start_date));
+        
+        // Count how many were scheduled
+        $scheduled_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}rp_schedules 
+            WHERE location_id = %d AND work_date BETWEEN %s AND %s 
+            AND status = 'scheduled' AND created_by = %d",
+            $location_id, $start_date, $end_date, get_current_user_id()
+        ));
+        
+        // Get remaining open shifts (shifts without assignments)
+        $shifts = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}rp_shifts WHERE location_id = %d AND is_active = 1",
+            $location_id
+        ));
+        
+        $open_shifts = [];
+        $days_in_month = date('t', strtotime($start_date));
+        
+        for ($day = 1; $day <= $days_in_month; $day++) {
+            $date = $month . '-' . sprintf('%02d', $day);
+            
+            if ($date < current_time('Y-m-d')) {
+                continue;
+            }
+            
+            foreach ($shifts as $shift) {
+                $exists = $wpdb->get_var($wpdb->prepare(
+                    "SELECT id FROM {$wpdb->prefix}rp_schedules 
+                    WHERE location_id = %d AND work_date = %s AND shift_id = %d AND status != 'cancelled'",
+                    $location_id, $date, $shift->id
+                ));
+                
+                if (!$exists) {
+                    $open_shifts[] = [
+                        'date' => date('d-m-Y', strtotime($date)),
+                        'date_raw' => $date,
+                        'shift_name' => $shift->name,
+                        'time' => substr($shift->start_time, 0, 5) . ' - ' . substr($shift->end_time, 0, 5),
+                        'color' => $shift->color
+                    ];
+                }
+            }
+        }
+        
+        wp_send_json_success([
+            'scheduled' => $scheduled_count,
+            'open_shifts' => $open_shifts,
+            'respected_contract_hours' => $respect_contract_hours,
+            'respected_availability' => $respect_availability
+        ]);
     }
 }

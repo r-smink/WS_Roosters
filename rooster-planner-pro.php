@@ -2,7 +2,7 @@
 /**
  * Plugin Name: RoosterPlanner Pro
  * Description: Compleet roosterplanningssysteem voor medewerkers met admin portal en mobile web app
- * Version: 1.3.7
+ * Version: 1.5
  * Author: NextBuzz
  * Text Domain: roosterplanner
  * Domain Path: /languages
@@ -14,9 +14,15 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('ROOSTER_PLANNER_VERSION', '1.3.7');
+define('ROOSTER_PLANNER_VERSION', '1.5');
 define('ROOSTER_PLANNER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('ROOSTER_PLANNER_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Composer autoload (for web-push etc.)
+$composer_autoload = ROOSTER_PLANNER_PLUGIN_DIR . 'vendor/autoload.php';
+if (file_exists($composer_autoload)) {
+    require_once $composer_autoload;
+}
 
 // Autoloader
 spl_autoload_register(function ($class) {
@@ -76,9 +82,11 @@ function rooster_planner_activate() {
         email_notifications tinyint(1) DEFAULT 1 COMMENT 'Email notificaties ingeschakeld',
         push_notifications tinyint(1) DEFAULT 1 COMMENT 'Push notificaties ingeschakeld',
         is_active tinyint(1) DEFAULT 1,
+        ical_token varchar(64) DEFAULT NULL COMMENT 'Token for persistent iCal feed',
         created_at datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
-        KEY user_id (user_id)
+        KEY user_id (user_id),
+        KEY ical_token (ical_token)
     ) $charset_collate;";
 
     // Employee locations (many-to-many)
@@ -201,6 +209,18 @@ function rooster_planner_activate() {
         UNIQUE KEY employee_location_day (employee_id, location_id, day_of_week)
     ) $charset_collate;";
 
+    // Push subscriptions table (Web Push)
+    $sql_push_subscriptions = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}rp_push_subscriptions (
+        id bigint(20) NOT NULL AUTO_INCREMENT,
+        user_id bigint(20) NOT NULL,
+        endpoint text NOT NULL,
+        p256dh varchar(255) DEFAULT NULL,
+        auth varchar(255) DEFAULT NULL,
+        created_at datetime DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY user_id (user_id)
+    ) $charset_collate;";
+
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     
     dbDelta($sql_locations);
@@ -214,6 +234,7 @@ function rooster_planner_activate() {
     dbDelta($sql_chat);
     dbDelta($sql_notifications);
     dbDelta($sql_fixed_schedules);
+    dbDelta($sql_push_subscriptions);
 
     // Create frontend pages with shortcodes (no demo data)
     rooster_planner_create_pages();
@@ -231,6 +252,13 @@ function rooster_planner_activate() {
 function rooster_planner_run_upgrades() {
     global $wpdb;
     $installed_version = get_option('rooster_planner_version', '1.0.0');
+
+    // Ensure is_swappable column exists (safety for older installs)
+    $schedules_columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_schedules", 0);
+    if ($schedules_columns && !in_array('is_swappable', $schedules_columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_schedules ADD COLUMN is_swappable tinyint(1) DEFAULT 0 AFTER status");
+        $wpdb->query("CREATE INDEX is_swappable_idx ON {$wpdb->prefix}rp_schedules (is_swappable)");
+    }
     
     // Add worked hours columns to schedules table (version 1.3.0+)
     if (version_compare($installed_version, '1.3.0', '<')) {
@@ -292,15 +320,131 @@ function rooster_planner_run_upgrades() {
         $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
         
         if (!in_array('email_notifications', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN email_notifications tinyint(1) DEFAULT 1 AFTER theme_preference");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN email_notifications tinyint(1) DEFAULT 1");
         }
         if (!in_array('push_notifications', $columns)) {
-            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1 AFTER email_notifications");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN push_notifications tinyint(1) DEFAULT 1");
+        }
+    }
+    
+    // Add contract_hours and job_role to employees table (version 1.3.8+)
+    if (version_compare($installed_version, '1.3.8', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('contract_hours', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0");
+        }
+        if (!in_array('job_role', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL");
+        }
+    }
+    
+    // Create final_schedules table (version 1.3.9+)
+    if (version_compare($installed_version, '1.3.9', '<')) {
+        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}rp_final_schedules (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            location_id bigint(20) NOT NULL,
+            month varchar(7) NOT NULL,
+            finalized_at datetime DEFAULT CURRENT_TIMESTAMP,
+            finalized_by bigint(20) DEFAULT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_location_month (location_id, month)
+        ) {$charset_collate};");
+    }
+    
+    // Add ical_token to employees table (version 1.4.0+)
+    if (version_compare($installed_version, '1.4.0', '<')) {
+        $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+        
+        if (!in_array('ical_token', $columns)) {
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL");
+            $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
         }
     }
     
     // Update version
     update_option('rooster_planner_version', ROOSTER_PLANNER_VERSION);
+    
+    // Failsafe: Always ensure required columns exist regardless of version
+    $columns = $wpdb->get_col("DESCRIBE {$wpdb->prefix}rp_employees");
+    
+    if (!in_array('contract_hours', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN contract_hours int(11) DEFAULT 0");
+    }
+    if (!in_array('job_role', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN job_role varchar(100) DEFAULT NULL");
+    }
+    if (!in_array('ical_token', $columns)) {
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD COLUMN ical_token varchar(64) DEFAULT NULL");
+        $wpdb->query("ALTER TABLE {$wpdb->prefix}rp_employees ADD KEY ical_token (ical_token)");
+    }
+}
+
+/**
+ * Create custom WordPress roles for Rooster Planner
+ */
+function rooster_planner_create_roles() {
+    // Planner role - can manage schedules, employees, locations
+    add_role('planner', 'Planner', [
+        'read' => true,
+        'manage_rooster_planner' => true,
+        'rp_view_schedules' => true,
+        'rp_edit_schedules' => true,
+        'rp_view_employees' => true,
+        'rp_edit_employees' => true,
+        'rp_view_locations' => true,
+        'rp_edit_locations' => true,
+        'rp_view_reports' => true,
+        'rp_view_swaps' => true,
+        'rp_process_swaps' => true,
+        'rp_view_timeoff' => true,
+        'rp_process_timeoff' => true,
+        'rp_finalize_months' => true,
+    ]);
+    
+    // Medewerker role - can only view their own schedule and submit availability
+    add_role('medewerker', 'Medewerker', [
+        'read' => true,
+        'rp_view_own_schedule' => true,
+        'rp_submit_availability' => true,
+        'rp_request_swap' => true,
+        'rp_request_timeoff' => true,
+        'rp_view_chat' => true,
+        'rp_send_chat' => true,
+    ]);
+    
+    // Also add capabilities to administrator
+    $admin = get_role('administrator');
+    if ($admin) {
+        $admin->add_cap('manage_rooster_planner');
+        $admin->add_cap('rp_view_schedules');
+        $admin->add_cap('rp_edit_schedules');
+        $admin->add_cap('rp_view_employees');
+        $admin->add_cap('rp_edit_employees');
+        $admin->add_cap('rp_view_locations');
+        $admin->add_cap('rp_edit_locations');
+        $admin->add_cap('rp_view_reports');
+        $admin->add_cap('rp_view_swaps');
+        $admin->add_cap('rp_process_swaps');
+        $admin->add_cap('rp_view_timeoff');
+        $admin->add_cap('rp_process_timeoff');
+        $admin->add_cap('rp_finalize_months');
+        $admin->add_cap('rp_view_own_schedule');
+        $admin->add_cap('rp_submit_availability');
+        $admin->add_cap('rp_request_swap');
+        $admin->add_cap('rp_request_timeoff');
+        $admin->add_cap('rp_view_chat');
+        $admin->add_cap('rp_send_chat');
+    }
+}
+
+/**
+ * Remove custom roles on plugin deactivation
+ */
+register_deactivation_hook(__FILE__, 'rooster_planner_deactivate');
+function rooster_planner_deactivate() {
+    remove_role('planner');
+    remove_role('medewerker');
 }
 
 /**
@@ -335,6 +479,10 @@ function rooster_planner_create_pages() {
         'medewerker-ziekmelden' => [
             'title' => 'Ziekmelden',
             'content' => '[roosterplanner_ziekmelden]'
+        ],
+        'medewerker-verlof' => [
+            'title' => 'Verlof Aanvragen',
+            'content' => '[roosterplanner_verlof]'
         ],
         'medewerker-profiel' => [
             'title' => 'Mijn Profiel',
@@ -382,6 +530,9 @@ function rooster_planner_init() {
     // Run database upgrades for existing installations
     rooster_planner_run_upgrades();
     
+    // Create custom roles
+    rooster_planner_create_roles();
+    
     // Register settings
     add_action('admin_init', 'rooster_planner_register_settings');
     
@@ -390,12 +541,16 @@ function rooster_planner_init() {
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-frontend.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ajax.php';
     require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-notifications.php';
+    require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-rest.php';
+    require_once ROOSTER_PLANNER_PLUGIN_DIR . 'includes/class-ical-export.php';
     
     // Initialize classes
     new RoosterPlanner\Admin();
     new RoosterPlanner\Frontend();
     new RoosterPlanner\Ajax();
     new RoosterPlanner\Notifications();
+    new RoosterPlanner\Rest();
+    new RoosterPlanner\ICalExport();
 }
 
 function rooster_planner_register_settings() {
@@ -403,7 +558,10 @@ function rooster_planner_register_settings() {
     register_setting('rooster_planner_options', 'rooster_planner_reminder_day');
     register_setting('rooster_planner_options', 'rooster_planner_email_notifications');
     register_setting('rooster_planner_options', 'rooster_planner_push_notifications');
+    register_setting('rooster_planner_options', 'rooster_planner_vapid_public');
+    register_setting('rooster_planner_options', 'rooster_planner_vapid_private');
     register_setting('rooster_planner_options', 'rooster_planner_enable_worked_hours');
+    register_setting('rooster_planner_options', 'rooster_planner_enable_self_sick_report');
     register_setting('rooster_planner_options', 'rooster_planner_enable_dark_theme');
     register_setting('rooster_planner_options', 'rooster_planner_custom_css');
     
@@ -438,7 +596,7 @@ function rooster_planner_pwa_head() {
     $page_slug = get_post_field('post_name', get_the_ID());
     $plugin_pages = ['medewerker-login', 'medewerker-dashboard', 'medewerker-rooster', 
                      'medewerker-beschikbaarheid', 'medewerker-ruilen', 'medewerker-chat',
-                     'medewerker-ziekmelden', 'medewerker-profiel', 'medewerker-berichten'];
+                     'medewerker-ziekmelden', 'medewerker-verlof', 'medewerker-profiel', 'medewerker-berichten'];
     
     if (!in_array($page_slug, $plugin_pages)) return;
     
@@ -448,6 +606,7 @@ function rooster_planner_pwa_head() {
     $icon_192 = get_option('rooster_planner_pwa_icon_192') ?: ROOSTER_PLANNER_PLUGIN_URL . 'assets/images/icon-192x192.png';
     
     echo '<link rel="manifest" href="' . ROOSTER_PLANNER_PLUGIN_URL . 'assets/manifest.json">' . "\n";
+    echo '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">' . "\n";
     echo '<meta name="theme-color" content="' . esc_attr($theme_color) . '">' . "\n";
     echo '<meta name="apple-mobile-web-app-capable" content="yes">' . "\n";
     echo '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">' . "\n";
@@ -489,10 +648,12 @@ function rooster_planner_frontend_assets() {
     wp_enqueue_script('rooster-planner-js', ROOSTER_PLANNER_PLUGIN_URL . 'assets/js/frontend.js', ['jquery'], ROOSTER_PLANNER_VERSION, true);
     wp_localize_script('rooster-planner-js', 'rpAjax', [
         'ajaxUrl' => admin_url('admin-ajax.php'),
+        'restUrl' => home_url('/wp-json/'),
         'nonce' => wp_create_nonce('rp_nonce'),
         'isLoggedIn' => is_user_logged_in(),
         'currentUserId' => get_current_user_id(),
-        'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL
+        'pluginUrl' => ROOSTER_PLANNER_PLUGIN_URL,
+        'homeUrl' => home_url('/')
     ]);
 }
 

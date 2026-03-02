@@ -7,8 +7,11 @@
         <a href="<?php echo home_url('/medewerker-beschikbaarheid/'); ?>" class="rp-btn rp-btn-secondary">
             ✅ Beschikbaarheid Doorgeven
         </a>
-        <a href="<?php echo home_url('/medewerker-ruilen/'); ?>" class="rp-btn rp-btn-secondary">
-            🔄 Ruilen
+        <a href="<?php echo home_url('/medewerker-ziekmelden/'); ?>" class="rp-btn rp-btn-secondary">
+            🤒 Ziekmelden
+        </a>
+        <a href="<?php echo home_url('/medewerker-verlof/'); ?>" class="rp-btn rp-btn-primary" style="background: #10B981;">
+            🏖️ Verlof Aanvragen
         </a>
     </div>
 </header>
@@ -102,6 +105,10 @@
                     <span class="rp-icon">🔄</span>
                     <span>Ruilen</span>
                 </a>
+                <a href="<?php echo home_url('/medewerker-berichten/'); ?>" class="rp-action-item">
+                    <span class="rp-icon">📨</span>
+                    <span>Berichten</span>
+                </a>
                 <a href="<?php echo home_url('/medewerker-chat/'); ?>" class="rp-action-item">
                     <span class="rp-icon">💬</span>
                     <span>Chat</span>
@@ -109,6 +116,10 @@
                 <a href="<?php echo home_url('/medewerker-ziekmelden/'); ?>" class="rp-action-item rp-action-urgent">
                     <span class="rp-icon">🤒</span>
                     <span>Ziekmelden</span>
+                </a>
+                <a href="<?php echo home_url('/medewerker-verlof/'); ?>" class="rp-action-item" style="background: #d1fae5;">
+                    <span class="rp-icon">🏖️</span>
+                    <span>Verlof Aanvragen</span>
                 </a>
                 <a href="<?php echo home_url('/medewerker-profiel/'); ?>" class="rp-action-item">
                     <span class="rp-icon">👤</span>
@@ -132,7 +143,7 @@
 .rp-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 10px;
 }
 .rp-header {
     display: flex;
@@ -140,7 +151,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 15px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 .rp-header h1 {
     margin: 0;
@@ -190,12 +201,79 @@
     gap: 20px;
 }
 @media (max-width: 768px) {
+    .rp-container { padding: 10px; max-width: 100%; }
     .rp-dashboard-grid {
         grid-template-columns: 1fr;
+        gap: 15px;
     }
     .rp-header {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .rp-header h1 {
+        font-size: 1.4rem;
+    }
+    .rp-header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    .rp-header-actions .rp-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 20px;
+        font-size: 15px;
+    }
+    .rp-card {
+        padding: 15px;
+    }
+    .rp-card h2 {
+        font-size: 16px;
+    }
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .rp-action-item {
+        padding: 12px 8px;
+    }
+    .rp-icon {
+        font-size: 20px;
+    }
+    .rp-action-item span:last-child {
+        font-size: 12px;
+        text-align: center;
+    }
+    .rp-shift-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .rp-shift-actions {
+        width: 100%;
+    }
+    .rp-shift-actions .rp-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .rp-action-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .rp-shift-date {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        min-width: auto;
+    }
+    .rp-day {
+        font-size: 18px;
+    }
+    .rp-month {
+        font-size: 11px;
     }
 }
 .rp-card {
@@ -217,13 +295,13 @@
 .rp-shift-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
 }
 .rp-shift-item {
     display: flex;
     align-items: center;
-    gap: 15px;
-    padding: 15px;
+    gap: 12px;
+    padding: 10px 12px;
     background: #f9fafb;
     border-radius: 8px;
     border-left: 3px solid #4F46E5;
@@ -274,7 +352,7 @@
 }
 .rp-action-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 10px;
 }
 .rp-action-item {

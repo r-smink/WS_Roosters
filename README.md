@@ -105,6 +105,26 @@ De plugin werkt als een Progressive Web App:
 3. Werkt offline voor bekeken data
 4. Push notificaties (indien ondersteund)
 
+## REST API voor native apps
+
+De plugin biedt nu JSON endpoints voor een native Android/iOS app onder `/wp-json/roosterplanner/v1`.
+
+**Authenticatie:** gebruik een WordPress *Application Password* per medewerker en Basic Auth. De huidige gebruiker wordt automatisch bepaald; er is geen aparte login route nodig.
+
+**Web Push:** installeer composer-dependency `minishlink/web-push` en zet VAPID keys in de plugin-instellingen (Rooster Planner → Instellingen → Push & PWA). Zonder deze stap worden push notificaties niet verstuurd.
+
+**Beschikbare routes**
+- `GET /me` — basisprofiel + gekoppelde locaties
+- `GET /locations` — locaties waar de medewerker toegang toe heeft
+- `GET /shifts?location_id=` — shifts per locatie
+- `GET /schedules?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` — persoonlijke diensten
+- `GET /availability?month=YYYY-MM&location_id=` — ingezonden beschikbaarheid
+- `POST /availability` — beschikbaarheid doorgeven (body: `{ location_id, entries: [...] }`)
+- `GET /notifications?limit=50&unread_only=1` — notificaties
+- `POST /notifications/{id}/read` — markeer gelezen
+
+Zie `android-app/README.md` voor de meegeleverde Android voorbeeldapp die deze endpoints gebruikt.
+
 ## Veelgestelde Vragen
 
 **Q: Kan ik bestaande gebruikers importeren?**  
